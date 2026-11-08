@@ -87,6 +87,19 @@ export interface CBREFacilityNode {
   position3D: [number, number, number];
 }
 
+export interface TenantLeaseContract {
+  id: string;
+  tenantName: string;
+  clusterId: string;
+  clusterName: string;
+  slaTier: "Tier-0 Mission Critical" | "Tier-0 Frontier Compute" | "Tier-1 Low Latency" | "Tier-2 Simulation Batch";
+  allocatedPowerMw: number;
+  leaseClause: string;
+  currentStatus: "NOMINAL" | "AT_RISK" | "BREACH_IMMINENT" | "MITIGATED";
+  hourlyPenaltyUsd: number;
+  annualContractValueUsd: number;
+}
+
 export interface InvisibleDependencyEdge {
   id: string;
   sourceId: string;
@@ -282,6 +295,7 @@ export function generateInitialDataCenterState(
   facilityNodes: CBREFacilityNode[];
   dependencyEdges: InvisibleDependencyEdge[];
   sites: CBRERealEstateSite[];
+  tenantContracts: TenantLeaseContract[];
   shiftEvents: ShiftHandoffEvent[];
 } {
   const scenario =
@@ -906,23 +920,75 @@ export function generateInitialDataCenterState(
       unstableRacksCount: 0,
     },
     {
-      id: "SITE-IAD-3",
-      name: "CBRE Ashburn Sovereign Cloud Annex (Target #2)",
-      market: "Northern Virginia (PJM Grid)",
-      coordinates: "39.0438° N, 77.4874° W",
+      id: "SITE-CMH-3",
+      name: "CBRE Columbus HyperScale Campus (Target #3)",
+      market: "Columbus, OH (PJM AEP Grid)",
+      coordinates: "40.0150° N, 82.9850° W",
       tier: "Tier IV Hyperscale",
-      availablePowerMw: 14.5,
-      totalPowerMw: 80.0,
-      pue: 1.18,
-      floorLoadingLbsSqFt: 420,
-      liquidCoolingReady: true,
-      leaseRatePerKwMonthUsd: 185,
-      substationRedundancy: "2N Dominion 230kV Loop",
-      cbreRecommendationScore: 88,
+      availablePowerMw: 0.0,
+      totalPowerMw: 50.0,
+      pue: 1.25,
+      floorLoadingLbsSqFt: 400,
+      liquidCoolingReady: false,
+      leaseRatePerKwMonthUsd: 155,
+      substationRedundancy: "138kV Single Feeder (Substation Expansion in Queue)",
+      cbreRecommendationScore: 78,
       expansionFitReason:
-        "Sub-2ms fiber peering to East Coast financial tenants; ideal secondary DR failover site for Cluster Charlie Sovereign AI workloads.",
-      activeClustersCount: 6,
-      unstableRacksCount: 1,
+        "Grid queue pending: AEP transmission interconnection delayed to Q4 2027; cannot meet urgent 18MW pipeline timeline.",
+      activeClustersCount: 0,
+      unstableRacksCount: 0,
+    },
+  ];
+
+  // Tenant Leases & Covenant Risk Matrix
+  const tenantContracts: TenantLeaseContract[] = [
+    {
+      id: "LEASE-HYP-02",
+      tenantName: "Hyperscale Cloud Tenant #2",
+      clusterId: "CLUSTER-B",
+      clusterName: "Cluster Bravo (Racks 09–16 Liquid Inference)",
+      slaTier: "Tier-0 Mission Critical",
+      allocatedPowerMw: 14.5,
+      leaseClause: "Clause 14.2: Liquid inlet >42°C for >15 min triggers penalty ($80,712/hr) & termination right",
+      currentStatus: nemotronMitigated ? "MITIGATED" : "BREACH_IMMINENT",
+      hourlyPenaltyUsd: metrics.activeSlaExposurePerHrUsd,
+      annualContractValueUsd: 38400000,
+    },
+    {
+      id: "LEASE-FIN-03",
+      tenantName: "Global Quant & Sovereign Cloud",
+      clusterId: "CLUSTER-C",
+      clusterName: "Cluster Charlie (Racks 17–24 Hopper Pod)",
+      slaTier: "Tier-1 Low Latency",
+      allocatedPowerMw: 10.2,
+      leaseClause: "Clause 21.4: 48V Busbar THD >5.0% for >30m triggers $28,500/hr credit & latency warranty breach",
+      currentStatus: nemotronMitigated ? "MITIGATED" : "AT_RISK",
+      hourlyPenaltyUsd: nemotronMitigated ? 0 : 28500,
+      annualContractValueUsd: 22500000,
+    },
+    {
+      id: "LEASE-ANTH-01",
+      tenantName: "Frontier AI Research Lab",
+      clusterId: "CLUSTER-A",
+      clusterName: "Cluster Alpha (Racks 01–08 Frontier LLM)",
+      slaTier: "Tier-0 Frontier Compute",
+      allocatedPowerMw: 16.0,
+      leaseClause: "Clause 8.1: PUE >1.35 or utility feeder sag >5% triggers $32,000/hr SLA rebate",
+      currentStatus: "NOMINAL",
+      hourlyPenaltyUsd: 0,
+      annualContractValueUsd: 28000000,
+    },
+    {
+      id: "LEASE-BIO-04",
+      tenantName: "BioCompute & Digital Twin Consortium",
+      clusterId: "CLUSTER-D",
+      clusterName: "Cluster Delta (Racks 25–32 Simulation)",
+      slaTier: "Tier-2 Simulation Batch",
+      allocatedPowerMw: 7.3,
+      leaseClause: "Clause 11.3: Chilled water loop temp >30°C triggers 15% monthly billing rebate",
+      currentStatus: "NOMINAL",
+      hourlyPenaltyUsd: 0,
+      annualContractValueUsd: 16800000,
     },
   ];
 
@@ -999,6 +1065,7 @@ export function generateInitialDataCenterState(
     facilityNodes,
     dependencyEdges,
     sites,
+    tenantContracts,
     shiftEvents,
   };
 }

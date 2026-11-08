@@ -170,17 +170,17 @@ Analyze the synchronized telemetry digest using a concise ReAct workflow:
 
     const agentSteps: AgentStepOutput[] = [
       {
-        agentId: "AGENT-01-SENTINEL",
-        agentName: "Nemotron-Sentinel",
-        role: "Cross-Silo Causal & Agentic RAG Investigator",
+        agentId: "AGENT-01-THERMAL",
+        agentName: "Thermal Agent",
+        role: "CRAH Valve Anomaly & Airflow Diagnostics",
         model: resolvedModel,
         reactPhase: "REASON_THINK",
-        summaryAction: `Correlated Badge #4491 & Shift C valve note with $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr SLA breach risk (T-${metrics.remainingTimeToCascadeMin}m countdown).`,
+        summaryAction: `Detected CRAH-02 bypass valve override at 38% from Badge #4491 entry, causing 14.2 L/min coolant drop to Cluster Bravo.`,
         thinkTrace:
           liveNemotronThink ||
-          `1. Observing thermal drift across Cluster Bravo & Charlie at T+${metrics.horizonOffsetMin}m horizon.
+          `1. Telemetry Sentinel observing thermal drift across Cluster Bravo (Racks 09-16) at T+${metrics.horizonOffsetMin}m horizon.
 2. Retrieved unstructured NMC² Shift C log + CBRE Access Control badge events: Contractor Badge #4491 entered Mech Room M2 and left CRAH-02 manual bypass at 38%.
-3. Mapped CBRE Master Lease #HYP-02 Clause 14.2: active SLA risk is $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr (escalated from $${metrics.baseSlaPerHrUsd.toLocaleString()}/hr base) with T-${metrics.remainingTimeToCascadeMin} mins remaining before breach.`,
+3. Mapped CBRE Master Lease #HYP-02 Clause 14.2: active SLA risk is $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr with T-${metrics.remainingTimeToCascadeMin} mins remaining before breach.`,
         toolCalls: [
           {
             id: "tc-101",
@@ -208,7 +208,7 @@ Analyze the synchronized telemetry digest using a concise ReAct workflow:
             latencyMs: 94,
           },
         ],
-        conclusion: `Root cause verified across 4 silos: Unclosed manual bypass valve in Room M2 (Badge #4491) + PDU-B1 harmonic distortion threatens $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr in tenant SLAs within T-${metrics.remainingTimeToCascadeMin} mins.`,
+        conclusion: `Root cause verified: Unclosed manual bypass valve in Room M2 (Badge #4491) threatens $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr in tenant SLAs within T-${metrics.remainingTimeToCascadeMin} mins.`,
         metricsImpact: {
           slaSavedPerHrUsd: metrics.activeSlaExposurePerHrUsd,
           racksStabilized: totalUnstableRacks,
@@ -217,18 +217,51 @@ Analyze the synchronized telemetry digest using a concise ReAct workflow:
         },
       },
       {
-        agentId: "AGENT-02-CLUSTER-ML",
-        agentName: "Nemotron-ClusterML",
-        role: "Spectral Hardware Swap vs. Transient Drift Classifier",
+        agentId: "AGENT-02-POWER",
+        agentName: "Power Agent",
+        role: "Substation Harmonics & Busbar Rectifier Diagnostics",
         model: resolvedModel,
         reactPhase: "ACT_TOOL_CALL",
-        summaryAction: `Separated ${metrics.transientDriftRacksCount} recoverable cooling-drift racks from ${metrics.flaggedHardwareSwapsCount} intrinsic hardware swap racks (${metrics.flaggedSwapRackIds.join(", ")}).`,
+        summaryAction: `Audited 48V busbar harmonics on Feeder PDU-B1: isolated 91.8mV ripple accelerating capacitor wear on Cluster Charlie rectifiers.`,
+        thinkTrace: `1. Executing electrical spectrum scan across PDU-B1 and Cluster Charlie/Delta busbars.
+2. Detected 8.7% Total Harmonic Distortion (THD) on Substation Feeder B1.
+3. Isolated rectifier shelves in RACK-19 and RACK-20 suffering from 91.8mV switching harmonic ripple, inducing single-bit ECC errors on Tray U6.
+4. Engaged active harmonic power filter to clamp busbar ripple down to 1.9% THD.`,
+        toolCalls: [
+          {
+            id: "tc-201",
+            toolName: "audit_pdu_harmonics_and_busbar_ripple",
+            arguments: {
+              feederId: "PDU-B1",
+              targetClusters: ["CLUSTER-C", "CLUSTER-D"],
+            },
+            observation:
+              "Measured 8.7% THD / 91.8mV peak-to-peak ripple on 48V DC busbar. Activated active harmonic cancellation filter.",
+            status: "SUCCESS",
+            latencyMs: 146,
+          },
+        ],
+        conclusion: `Suppressed harmonic resonance on Feeder PDU-B1 from 8.7% to 1.9% THD, protecting power delivery across 16 server racks.`,
+        metricsImpact: {
+          slaSavedPerHrUsd: metrics.activeSlaExposurePerHrUsd,
+          racksStabilized: totalUnstableRacks,
+          racksFlaggedForReplacement: metrics.flaggedSwapRackIds,
+          cbreTargetSite: "SITE-PDX-2",
+        },
+      },
+      {
+        agentId: "AGENT-03-HARDWARE",
+        agentName: "Hardware Agent",
+        role: "Manifold Seals & Cage 4 Swap Staging",
+        model: resolvedModel,
+        reactPhase: "ACT_TOOL_CALL",
+        summaryAction: `Identified damaged quick-disconnect seals on Rack-11 (U4 Tray) & 4 other degraded racks; staged Cage 4 modular replacement kits.`,
         thinkTrace: `1. Executing spectral clustering over per-blade telemetry [tempC, psuRippleMv, eccErrorsPerHr, vibrationMmS].
 2. Identified ${metrics.transientDriftRacksCount} racks suffering purely from external CRAH-02 coolant starvation (0 blade hardware faults -> recover via valve actuation).
 3. Isolated ${metrics.flaggedHardwareSwapsCount} racks with intrinsic component failure: RACK-11 (U4 Manifold/38 ECC), RACK-12 (U2 TIM/31 ECC), RACK-19 (U8 91.8mV Ripple/54 ECC), RACK-20 (U8 84.5mV Ripple/42 ECC), and RACK-27 (CDU Bearing 4.7 mm/s).`,
         toolCalls: [
           {
-            id: "tc-201",
+            id: "tc-301",
             toolName: "execute_spectral_rack_clustering",
             arguments: {
               features: [
@@ -244,7 +277,7 @@ Analyze the synchronized telemetry digest using a concise ReAct workflow:
             latencyMs: 172,
           },
           {
-            id: "tc-202",
+            id: "tc-302",
             toolName: "stage_nmc2_cage4_replacement_kits",
             arguments: {
               immediateSwapRacks: ["RACK-11", "RACK-12", "RACK-19", "RACK-20"],
@@ -257,7 +290,7 @@ Analyze the synchronized telemetry digest using a concise ReAct workflow:
             latencyMs: 112,
           },
         ],
-        conclusion: `Prevented unnecessary CapEx replacement on ${metrics.transientDriftRacksCount} transient-drift racks while staging precision blade/PSU hot-swaps for ${metrics.flaggedSwapRackIds.join(", ")}.`,
+        conclusion: `Isolated damaged quick-disconnect manifold seals on RACK-11 & staged 5 precision replacements in Cage 4, saving $242.5K in unnecessary parts.`,
         metricsImpact: {
           slaSavedPerHrUsd: metrics.activeSlaExposurePerHrUsd,
           racksStabilized: totalUnstableRacks,
@@ -266,18 +299,19 @@ Analyze the synchronized telemetry digest using a concise ReAct workflow:
         },
       },
       {
-        agentId: "AGENT-03-ACTUATOR",
-        agentName: "Nemotron-Actuator",
-        role: "Autonomous Facility Control & Live Workload Drain",
+        agentId: "AGENT-04-DISPATCHER",
+        agentName: "Executive Dispatcher",
+        role: "Auto-Healing & CBRE Lease Portal Bridge",
         model: resolvedModel,
-        reactPhase: "ACT_TOOL_CALL",
-        summaryAction: `Engaged CRAH-02 Aux Valve V-204B (39.4 L/min restored) and live-migrated workloads off ${metrics.flaggedSwapRackIds.slice(0, 4).join(", ")} with 0 dropped tokens.`,
+        reactPhase: "OBSERVE_SYNTHESIZE",
+        summaryAction: `Actuated CRAH-02 Aux Valve V-204B, live-drained 48 GPU workloads, and transmitted protected status to CBRE Lease Portal.`,
         thinkTrace: `1. With T-${metrics.remainingTimeToCascadeMin} mins to SLA breach, executing zero-touch mitigation.
 2. Actuating motorized Auxiliary Valve V-204B on CRAH-02 to bypass the stuck manual valve in Room M2 and engaging active harmonic filtering on PDU-B1.
-3. Live-draining distributed training & inference shards off swap-bound racks to Cluster Alpha.`,
+3. Live-draining distributed training & inference shards off swap-bound racks to Cluster Alpha with 0 dropped tokens.
+4. Transmitting executive briefing to CBRE Asset Management portal recommending Hillsboro OR site expansion.`,
         toolCalls: [
           {
-            id: "tc-301",
+            id: "tc-401",
             toolName: "cbre_bms_actuate_cooling_and_power_controls",
             arguments: {
               crahUnit: "CRAH-02",
@@ -291,7 +325,7 @@ Analyze the synchronized telemetry digest using a concise ReAct workflow:
             latencyMs: 198,
           },
           {
-            id: "tc-302",
+            id: "tc-402",
             toolName: "nvidia_nvlink_live_drain_workloads",
             arguments: {
               sourceRacks: ["RACK-11", "RACK-12", "RACK-19", "RACK-20"],
@@ -303,56 +337,22 @@ Analyze the synchronized telemetry digest using a concise ReAct workflow:
             status: "SUCCESS",
             latencyMs: 245,
           },
+          {
+            id: "tc-403",
+            toolName: "broadcast_cbre_portal_status_handshake",
+            arguments: {
+              protectedSlaUsd: metrics.activeSlaExposurePerHrUsd,
+              recommendedSite: "CBRE Hillsboro Clean-Grid AI Factory (34MW Ready)",
+            },
+            observation:
+              "CBRE Asset Management Portal updated: $80,712/hr SLA exposure marked 100% Protected; Hillsboro expansion pipeline recommendation dispatched.",
+            status: "SUCCESS",
+            latencyMs: 64,
+          },
         ],
         conclusion:
           liveNemotronContent ||
-          `Autonomous mitigation complete: Auxiliary cooling restored, harmonic ripple filtered, and $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr in tenant SLA exposure reduced to $0/hr.`,
-        metricsImpact: {
-          slaSavedPerHrUsd: metrics.activeSlaExposurePerHrUsd,
-          racksStabilized: totalUnstableRacks,
-          racksFlaggedForReplacement: metrics.flaggedSwapRackIds,
-          cbreTargetSite: "SITE-PDX-2",
-        },
-      },
-      {
-        agentId: "AGENT-04-CBRE-STRATEGIST",
-        agentName: "Nemotron-CBRE-Strategist",
-        role: "Real Estate Capacity Expansion & Shift Handoff Planner",
-        model: resolvedModel,
-        reactPhase: "OBSERVE_SYNTHESIZE",
-        summaryAction: `Recommended CBRE Hillsboro OR (34MW Hydro, 96/100 Fit) for 18MW Blackwell expansion and compiled unified Night Shift A handoff packet.`,
-        thinkTrace: `1. DFW-North is at ${metrics.dfwUtilizationPct}% capacity (${metrics.dfwUsedPowerMw}/${metrics.dfwTotalPowerMw} MW, ${metrics.dfwAvailableMarginMw} MW margin) with 350 lbs/sq.ft slab limit.
-2. Next-gen 18MW NVIDIA Blackwell NVL72 expansion exceeds local feeder margin; CBRE Hillsboro Clean-Grid AI Factory (SITE-PDX-2) provides 34.0 MW hydro power, PUE 1.11, and 500 lbs/sq.ft slab (96/100 Fit).
-3. Prepared unified NMC² Shift Handoff sign-off workflow (Pending -> Verified -> Signed).`,
-        toolCalls: [
-          {
-            id: "tc-401",
-            toolName: "cbre_portfolio_site_selection_optimizer",
-            arguments: {
-              requiredExpansionMw: 18.0,
-              currentDfwMarginMw: metrics.dfwAvailableMarginMw,
-              minSlabLbsSqFt: 450,
-            },
-            observation:
-              "Selected CBRE Hillsboro OR (SITE-PDX-2, 96/100 Fit): 34.0 MW available, PUE 1.11, $142/kW-mo ($1.84M/yr OPEX savings vs DFW retrofit).",
-            status: "SUCCESS",
-            latencyMs: 164,
-          },
-          {
-            id: "tc-402",
-            toolName: "compile_unified_nmc2_shift_handoff_manifest",
-            arguments: {
-              outgoingShift: "Swing Shift C",
-              incomingShift: "Night Shift A",
-              stagedRackSwaps: metrics.flaggedSwapRackIds,
-            },
-            observation:
-              "Unified Shift Handoff Manifest #HO-9942 ready for incoming Night Shift A verification and cryptographic sign-off.",
-            status: "SUCCESS",
-            latencyMs: 84,
-          },
-        ],
-        conclusion: `Eliminated $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr SLA risk, queued ${metrics.flaggedHardwareSwapsCount} precision rack swaps, and matched 18MW expansion to CBRE Hillsboro OR.`,
+          `Facility drift in DFW will trigger a lease covenant breach within 18 minutes. Autonomous mitigation has stabilized cooling, but local grid headroom is near capacity (3.2 MW margin). Recommend approving capacity offload to Hillsboro.`,
         metricsImpact: {
           slaSavedPerHrUsd: metrics.activeSlaExposurePerHrUsd,
           racksStabilized: totalUnstableRacks,
