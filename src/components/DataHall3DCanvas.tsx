@@ -8,6 +8,16 @@ import {
   RackNode,
   StabilityClusterType,
 } from "@/lib/datacenter-twin";
+import {
+  Activity,
+  AlertTriangle,
+  Compass,
+  Eye,
+  Flame,
+  Layers,
+  Wrench,
+  ZoomIn,
+} from "lucide-react";
 
 interface DataHall3DCanvasProps {
   racks: RackNode[];
@@ -32,8 +42,8 @@ function getClusterColorHex(
   }
 
   if (mode === "THERMAL_HEATMAP") {
-    if (rack.coolantTempC >= 43 || rack.replacementRecommended) return 0xef4444; // Red
-    if (rack.coolantTempC >= 35) return 0xf59e0b; // Amber
+    if (rack.coolantTempC >= 42 || rack.replacementRecommended) return 0xef4444; // Red
+    if (rack.coolantTempC >= 34) return 0xf59e0b; // Amber
     return 0x10b981; // Green
   }
 
@@ -56,9 +66,7 @@ export default function DataHall3DCanvas({
 }: DataHall3DCanvasProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hoveredRack, setHoveredRack] = useState<RackNode | null>(null);
-  const [cameraPreset, setCameraPreset] = useState<
-    "OVERVIEW" | "CLUSTER_BC" | "REPLACEMENT" | "TOP"
-  >("OVERVIEW");
+  const [activeClusterFocus, setActiveClusterFocus] = useState<string>("ALL");
 
   const racksRef = useRef<RackNode[]>(racks);
   racksRef.current = racks;
@@ -76,37 +84,42 @@ export default function DataHall3DCanvas({
     target: new THREE.Vector3(0, 0.8, 0),
   });
 
-  const applyCameraPreset = (
-    preset: "OVERVIEW" | "CLUSTER_BC" | "REPLACEMENT" | "TOP"
-  ) => {
-    setCameraPreset(preset);
-    if (preset === "OVERVIEW") {
+  const focusCluster = (clusterId: string) => {
+    setActiveClusterFocus(clusterId);
+    if (clusterId === "ALL") {
       sphericalRef.current = {
-        radius: 23,
+        radius: 24,
         theta: 0.62,
         phi: 0.98,
         target: new THREE.Vector3(0, 0.8, 0),
       };
-    } else if (preset === "CLUSTER_BC") {
+    } else if (clusterId === "CLUSTER-A") {
       sphericalRef.current = {
-        radius: 15,
+        radius: 14,
+        theta: 0.75,
+        phi: 0.95,
+        target: new THREE.Vector3(-4.8, 1.0, -3.6),
+      };
+    } else if (clusterId === "CLUSTER-B") {
+      sphericalRef.current = {
+        radius: 14,
+        theta: -0.55,
+        phi: 0.92,
+        target: new THREE.Vector3(4.8, 1.0, -3.6),
+      };
+    } else if (clusterId === "CLUSTER-C") {
+      sphericalRef.current = {
+        radius: 14,
+        theta: 0.45,
+        phi: 0.92,
+        target: new THREE.Vector3(-4.8, 1.0, 3.6),
+      };
+    } else if (clusterId === "CLUSTER-D") {
+      sphericalRef.current = {
+        radius: 14,
         theta: -0.45,
         phi: 0.92,
-        target: new THREE.Vector3(2.5, 1.0, 0),
-      };
-    } else if (preset === "REPLACEMENT") {
-      sphericalRef.current = {
-        radius: 13.5,
-        theta: 0.25,
-        phi: 0.85,
-        target: new THREE.Vector3(1.2, 1.1, 0.5),
-      };
-    } else if (preset === "TOP") {
-      sphericalRef.current = {
-        radius: 25,
-        theta: 0.01,
-        phi: 0.22,
-        target: new THREE.Vector3(0, 0, 0),
+        target: new THREE.Vector3(4.8, 1.0, 3.6),
       };
     }
   };
@@ -116,11 +129,11 @@ export default function DataHall3DCanvas({
     if (!container) return;
 
     const width = container.clientWidth || 900;
-    const height = container.clientHeight || 510;
+    const height = container.clientHeight || 530;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060a12);
-    scene.fog = new THREE.FogExp2(0x060a12, 0.018);
+    scene.background = new THREE.Color(0x060913);
+    scene.fog = new THREE.FogExp2(0x060913, 0.016);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 200);
 
@@ -134,46 +147,46 @@ export default function DataHall3DCanvas({
     container.innerHTML = "";
     container.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xe2e8f0, 0.8);
+    const ambientLight = new THREE.AmbientLight(0xdce7f5, 0.85);
     scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0xf8fafc, 1.15);
+    const dirLight1 = new THREE.DirectionalLight(0x38bdf8, 1.2);
     dirLight1.position.set(15, 24, 14);
     scene.add(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.7);
+    const dirLight2 = new THREE.DirectionalLight(0x10b981, 0.7);
     dirLight2.position.set(-16, 18, -12);
     scene.add(dirLight2);
 
-    // Neutral Slate Floor Grid
-    const gridHelper = new THREE.GridHelper(34, 34, 0x1e293b, 0x0f172a);
+    // Sleek Data Center Floor Grid
+    const gridHelper = new THREE.GridHelper(36, 36, 0x1e3a8a, 0x0f172a);
     gridHelper.position.y = -0.02;
     scene.add(gridHelper);
 
-    const floorGeo = new THREE.PlaneGeometry(34, 24);
+    const floorGeo = new THREE.PlaneGeometry(36, 26);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x080c16,
-      roughness: 0.88,
-      metalness: 0.15,
+      color: 0x070c18,
+      roughness: 0.85,
+      metalness: 0.2,
     });
     const floorMesh = new THREE.Mesh(floorGeo, floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.position.y = -0.05;
     scene.add(floorMesh);
 
-    // Subtle neutral slate zone pads for Clusters A, B, C, D
+    // Glowing Floor Pods for Clusters A, B, C, D
     const clusterPads = [
-      { id: "CLUSTER-A", x: -4.8, z: -3.6 },
-      { id: "CLUSTER-B", x: 4.8, z: -3.6 },
-      { id: "CLUSTER-C", x: -4.8, z: 3.6 },
-      { id: "CLUSTER-D", x: 4.8, z: 3.6 },
+      { id: "CLUSTER-A", label: "Cluster Alpha · Frontier LLM", x: -4.8, z: -3.6, color: 0x10b981 },
+      { id: "CLUSTER-B", label: "Cluster Bravo · Inference Mesh", x: 4.8, z: -3.6, color: 0xf59e0b },
+      { id: "CLUSTER-C", label: "Cluster Charlie · Quant Pod", x: -4.8, z: 3.6, color: 0xef4444 },
+      { id: "CLUSTER-D", label: "Cluster Delta · Simulation", x: 4.8, z: 3.6, color: 0x38bdf8 },
     ];
     clusterPads.forEach((pad) => {
-      const padGeo = new THREE.PlaneGeometry(9.2, 6.2);
+      const padGeo = new THREE.PlaneGeometry(9.6, 6.4);
       const padMat = new THREE.MeshBasicMaterial({
-        color: 0x1e293b,
+        color: pad.color,
         transparent: true,
-        opacity: 0.16,
+        opacity: 0.08,
         side: THREE.DoubleSide,
       });
       const padMesh = new THREE.Mesh(padGeo, padMat);
@@ -183,9 +196,9 @@ export default function DataHall3DCanvas({
 
       const borderGeo = new THREE.EdgesGeometry(padGeo);
       const borderMat = new THREE.LineBasicMaterial({
-        color: 0x334155,
+        color: pad.color,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.45,
       });
       const borderLine = new THREE.LineSegments(borderGeo, borderMat);
       borderLine.rotation.x = -Math.PI / 2;
@@ -214,7 +227,7 @@ export default function DataHall3DCanvas({
       const cabinetGeo = new THREE.BoxGeometry(1.35, 2.75, 1.55);
       const frameMat = new THREE.MeshStandardMaterial({
         color: 0x0f172a,
-        metalness: 0.7,
+        metalness: 0.75,
         roughness: 0.35,
         emissive: 0x000000,
         emissiveIntensity: 0.2,
@@ -227,7 +240,7 @@ export default function DataHall3DCanvas({
       const edgesMat = new THREE.LineBasicMaterial({
         color: 0x334155,
         transparent: true,
-        opacity: 0.65,
+        opacity: 0.7,
       });
       const edgesLine = new THREE.LineSegments(edgesGeo, edgesMat);
       edgesLine.position.y = 1.375;
@@ -262,7 +275,7 @@ export default function DataHall3DCanvas({
 
       const ringGeo = new THREE.RingGeometry(0.95, 1.18, 32);
       const selectionRingMat = new THREE.MeshBasicMaterial({
-        color: 0xf8fafc,
+        color: 0x38bdf8,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.0,
@@ -291,22 +304,24 @@ export default function DataHall3DCanvas({
       });
     });
 
-    // CBRE Facility Dependency Beams (Strict semantic colors: Red for failing/swap, Amber for warning, Green for nominal)
+    // CBRE Facility Nodes & Beams
     const networkGroup = new THREE.Group();
     scene.add(networkGroup);
 
     facilityNodes.forEach((fNode) => {
-      const nodeGeo = new THREE.OctahedronGeometry(0.62, 1);
+      const nodeGeo = new THREE.OctahedronGeometry(0.68, 1);
       const nodeColor =
-        fNode.status === "FAILING"
-          ? 0xef4444
-          : fNode.status === "WARNING"
+        fNode.category === "HVAC_COOLING"
+          ? 0x06b6d4
+          : fNode.category === "UTILITY_POWER"
+          ? 0xa855f7
+          : fNode.category === "ACCESS_CONTROL"
           ? 0xf59e0b
           : 0x10b981;
       const nodeMat = new THREE.MeshStandardMaterial({
         color: nodeColor,
         emissive: nodeColor,
-        emissiveIntensity: 0.6,
+        emissiveIntensity: 0.7,
       });
       const nodeMesh = new THREE.Mesh(nodeGeo, nodeMat);
       nodeMesh.position.set(
@@ -340,12 +355,12 @@ export default function DataHall3DCanvas({
             points[2]
           );
           const lineGeo = new THREE.BufferGeometry().setFromPoints(
-            curve.getPoints(22)
+            curve.getPoints(24)
           );
           const lineMat = new THREE.LineBasicMaterial({
-            color: rack.replacementRecommended ? 0xef4444 : 0xf59e0b,
+            color: rack.replacementRecommended ? 0xef4444 : nodeColor,
             transparent: true,
-            opacity: 0.42,
+            opacity: 0.45,
           });
           const curveLine = new THREE.Line(lineGeo, lineMat);
           networkGroup.add(curveLine);
@@ -378,10 +393,7 @@ export default function DataHall3DCanvas({
         sphericalRef.current.theta -= dx * 0.0065;
         sphericalRef.current.phi = Math.max(
           0.18,
-          Math.min(
-            Math.PI / 2 - 0.08,
-            sphericalRef.current.phi - dy * 0.0065
-          )
+          Math.min(Math.PI / 2 - 0.08, sphericalRef.current.phi - dy * 0.0065)
         );
         return;
       }
@@ -390,8 +402,7 @@ export default function DataHall3DCanvas({
       const intersects = raycaster.intersectObjects(interactableMeshes, false);
       if (intersects.length > 0) {
         const hitRackId = intersects[0].object.userData?.rackId;
-        const found =
-          racksRef.current.find((r) => r.id === hitRackId) || null;
+        const found = racksRef.current.find((r) => r.id === hitRackId) || null;
         setHoveredRack(found);
         renderer.domElement.style.cursor = "pointer";
       } else {
@@ -412,10 +423,7 @@ export default function DataHall3DCanvas({
         pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(pointer, camera);
-        const intersects = raycaster.intersectObjects(
-          interactableMeshes,
-          false
-        );
+        const intersects = raycaster.intersectObjects(interactableMeshes, false);
         if (intersects.length > 0) {
           const hitRackId = intersects[0].object.userData?.rackId;
           if (hitRackId) onSelectRack(hitRackId);
@@ -440,7 +448,7 @@ export default function DataHall3DCanvas({
     const handleResize = () => {
       if (!container) return;
       const w = container.clientWidth || 900;
-      const h = container.clientHeight || 510;
+      const h = container.clientHeight || 530;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -482,7 +490,7 @@ export default function DataHall3DCanvas({
         item.frameMat.emissiveIntensity = isSelected
           ? 0.45
           : isSwapRequired
-          ? pulse * 0.3
+          ? pulse * 0.32
           : 0.1;
 
         item.selectionRingMat.opacity = isSelected ? 0.95 : 0.0;
@@ -496,7 +504,7 @@ export default function DataHall3DCanvas({
               bladeObj.mat.color.setHex(0xef4444);
               bladeObj.mat.emissive.setHex(0xef4444);
               bladeObj.mat.emissiveIntensity =
-                0.8 + 0.3 * Math.sin(elapsed * 5.5);
+                0.85 + 0.3 * Math.sin(elapsed * 5.5);
               bladeObj.mesh.position.z = 0.42 + 0.05 * Math.sin(elapsed * 4);
             } else {
               bladeObj.mat.color.setHex(0x1e293b);
@@ -533,96 +541,138 @@ export default function DataHall3DCanvas({
   }, [facilityNodes, onSelectRack]);
 
   return (
-    <div className="relative w-full h-[510px] rounded-2xl overflow-hidden border border-slate-800 bg-[#060a12]">
+    <div className="relative w-full h-[530px] rounded-3xl overflow-hidden border border-slate-700/60 bg-[#060913] shadow-2xl">
       <div ref={mountRef} className="w-full h-full" />
 
-      {/* Top-Left Overlay: Strict 3-State Semantic Legend */}
-      <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2 pointer-events-none">
-        <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-            Healthy / Optimal
+      {/* Top Floating Bar: Cluster Zoom Pills */}
+      <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Cluster Navigation Controls */}
+        <div className="flex flex-wrap items-center gap-1.5 pointer-events-auto bg-slate-950/80 backdrop-blur-md border border-slate-800 rounded-2xl p-1.5 shadow-lg">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 flex items-center gap-1">
+            <Compass className="w-3 h-3 text-sky-400" /> Focus Cluster:
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
-            Transient Facility Drift (Recoverable)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
-            Hardware Swap Required / SLA Risk
-          </span>
+          <button
+            onClick={() => focusCluster("ALL")}
+            className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition ${
+              activeClusterFocus === "ALL"
+                ? "bg-slate-800 text-white border border-slate-600"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            All (32 Racks)
+          </button>
+          <button
+            onClick={() => focusCluster("CLUSTER-B")}
+            className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
+              activeClusterFocus === "CLUSTER-B"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/50"
+                : "text-slate-400 hover:text-amber-300"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            Cluster Bravo (Inference · Overheating)
+          </button>
+          <button
+            onClick={() => focusCluster("CLUSTER-C")}
+            className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
+              activeClusterFocus === "CLUSTER-C"
+                ? "bg-rose-500/20 text-rose-300 border border-rose-500/50"
+                : "text-slate-400 hover:text-rose-300"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            Cluster Charlie (Quant · 91mV Ripple)
+          </button>
+          <button
+            onClick={() => focusCluster("CLUSTER-A")}
+            className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition ${
+              activeClusterFocus === "CLUSTER-A"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            Cluster Alpha (LLM)
+          </button>
         </div>
 
+        {/* Right: Autonomous Status Pill */}
         {nemotronMitigated && (
-          <div className="bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            Cascade Mitigated: Auxiliary Cooling & Workload Drain Active
+          <div className="bg-emerald-950/90 backdrop-blur-md border border-emerald-500/50 text-emerald-300 px-3.5 py-1.5 rounded-2xl text-xs font-bold shadow-lg flex items-center gap-2 pointer-events-auto">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            Aux Cooling Open · Workloads Live-Migrated
           </div>
         )}
       </div>
 
-      {/* Bottom-Left Overlay: Camera Preset Buttons */}
-      <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-1.5">
-        {(
-          [
-            { id: "OVERVIEW", label: "Isometric Hall" },
-            { id: "CLUSTER_BC", label: "Focus Clusters B & C" },
-            { id: "REPLACEMENT", label: "Blade Swap X-Ray" },
-            { id: "TOP", label: "Top-Down Map" },
-          ] as const
-        ).map((btn) => (
-          <button
-            key={btn.id}
-            onClick={() => applyCameraPreset(btn.id)}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition border ${
-              cameraPreset === btn.id
-                ? "bg-slate-800 border-slate-600 text-white"
-                : "bg-slate-950/85 border-slate-800 text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            {btn.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Bottom-Right Overlay: Live Hover Tooltip */}
-      {hoveredRack && (
-        <div className="absolute bottom-3 right-3 w-72 bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-xl p-3 text-xs text-slate-200 shadow-2xl pointer-events-none">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
-            <span className="font-bold text-white">{hoveredRack.label}</span>
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                hoveredRack.replacementRecommended
-                  ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                  : hoveredRack.stabilityCluster === "TRANSIENT_THERMAL_DRIFT"
-                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                  : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-              }`}
-            >
-              Health {hoveredRack.healthScore}%
+      {/* Bottom Floating Bar: Interactive Controls & Click Hint */}
+      <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Camera Controls */}
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
+          <div className="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-2xl px-3 py-1.5 text-xs text-slate-300 flex items-center gap-3">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              Healthy
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+              Cooling Drift
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+              Hardware Swap Required
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-300 mb-1.5">
+        </div>
+
+        {/* Center / Right: Click Hint */}
+        <div className="pointer-events-auto bg-slate-950/90 backdrop-blur-md border border-slate-700/60 rounded-2xl px-3.5 py-1.5 text-xs text-slate-300 shadow-xl flex items-center gap-2">
+          <span className="text-sky-400 font-bold">💡 Tip:</span> Click any server rack in 3D to inspect internal GPU trays
+        </div>
+      </div>
+
+      {/* Hover Tooltip */}
+      {hoveredRack && (
+        <div className="absolute top-16 right-4 w-72 bg-slate-950/95 backdrop-blur-xl border border-slate-700 rounded-2xl p-3.5 text-xs text-slate-200 shadow-2xl pointer-events-none animate-in fade-in zoom-in-95">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
             <div>
-              <span className="text-slate-500">Coolant:</span>{" "}
-              {hoveredRack.coolantTempC}°C
+              <span className="font-bold text-white text-sm">{hoveredRack.label}</span>
+              <span className="text-[10px] text-slate-400 block">{hoveredRack.gpuArchitecture}</span>
             </div>
-            <div>
-              <span className="text-slate-500">Flow:</span>{" "}
-              {hoveredRack.coolantFlowLpm} L/m
+            <span
+              className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                hoveredRack.replacementRecommended
+                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                  : hoveredRack.stabilityCluster === "TRANSIENT_THERMAL_DRIFT"
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                  : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+              }`}
+            >
+              {hoveredRack.healthScore}%
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300 mb-2">
+            <div className="bg-slate-900/80 rounded-lg p-1.5 border border-slate-800">
+              <span className="text-slate-500 block text-[10px]">Coolant Temp</span>
+              <strong className="text-white text-xs">{hoveredRack.coolantTempC}°C</strong>
             </div>
-            <div>
-              <span className="text-slate-500">Peak Ripple:</span>{" "}
-              {hoveredRack.voltageRippleMv} mV
+            <div className="bg-slate-900/80 rounded-lg p-1.5 border border-slate-800">
+              <span className="text-slate-500 block text-[10px]">Flow Rate</span>
+              <strong className="text-white text-xs">{hoveredRack.coolantFlowLpm} L/m</strong>
             </div>
-            <div>
-              <span className="text-slate-500">ECC Rate:</span>{" "}
-              {hoveredRack.totalEccErrorsPerHr}/hr
+            <div className="bg-slate-900/80 rounded-lg p-1.5 border border-slate-800">
+              <span className="text-slate-500 block text-[10px]">PSU Ripple</span>
+              <strong className="text-white text-xs">{hoveredRack.voltageRippleMv} mV</strong>
+            </div>
+            <div className="bg-slate-900/80 rounded-lg p-1.5 border border-slate-800">
+              <span className="text-slate-500 block text-[10px]">ECC Error Rate</span>
+              <strong className="text-white text-xs">{hoveredRack.totalEccErrorsPerHr} ECC/h</strong>
             </div>
           </div>
+
           {hoveredRack.replacementRecommended && (
-            <div className="bg-rose-950/40 border border-rose-500/30 rounded-lg p-1.5 text-[11px] text-rose-200">
-              <strong className="text-rose-400">Swap Required:</strong>{" "}
+            <div className="bg-rose-950/60 border border-rose-500/40 rounded-xl p-2 text-[11px] text-rose-200">
+              <strong className="text-rose-400 block mb-0.5">⚠️ Cage 4 Swap Required:</strong>
               {hoveredRack.replacementDiagnosis}
             </div>
           )}
