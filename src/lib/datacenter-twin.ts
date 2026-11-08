@@ -1,23 +1,23 @@
 // ============================================================================
-// NEXUSDC / GRIDMIND — UNIFIED DATA CENTER DIGITAL TWIN & CAUSAL ENGINE
-// Connects:
-//   1. CBRE "The Invisible Network": Facility HVAC, Utility Substations,
-//      Physical Access Controls, Tenant SLA Contracts, & Site Expansion Real Estate
-//   2. NorthMark Compute & Cloud (NMC²): Rack Cluster Health, Degraded Hardware
-//      Replacement Clustering, & Zero-Drop Shift Handoff Flight Recorder
-//   3. NVIDIA Nemotron: Multi-Step ReAct Agents, /think Reasoning, & Tool Calling
+// NEXUSDC — SINGLE SOURCE OF TRUTH DATA CENTER TWIN & CAUSAL STATE ENGINE
+// Synchronizes SLA Exposure, Time-to-Cascade, Blade-to-Rack Aggregates,
+// CBRE Cross-Silo Dependencies, and NMC² Shift Handoff State.
 // ============================================================================
 
 export type StabilityClusterType =
   | "HEALTHY_OPTIMAL"
-  | "THERMAL_CASCADE_RISK"
-  | "POWER_RIPPLE_DEGRADED"
-  | "COOLING_MICRO_LEAK_REPLACE"
-  | "CRITICAL_SLA_BREACH";
+  | "TRANSIENT_THERMAL_DRIFT"
+  | "HARDWARE_SWAP_REQUIRED";
+
+export type HandoffSignoffState = "PENDING" | "VERIFIED" | "SIGNED";
 
 export interface BladeUnit {
-  uSlot: number; // 1U to 8U GPU trays
-  model: "NVIDIA HGX B200 (8x GPU)" | "NVIDIA HGX H200 (8x GPU)" | "NVLink Switch Tray" | "Rectifier PSU Shelf";
+  uSlot: number; // 1U to 8U
+  model:
+    | "NVIDIA HGX B200 (8x GPU)"
+    | "NVIDIA HGX H200 (8x GPU)"
+    | "NVLink Switch Tray"
+    | "Rectifier PSU Shelf";
   tempC: number;
   powerKw: number;
   psuRippleMv: number;
@@ -35,7 +35,10 @@ export interface RackNode {
   row: number;
   col: number;
   position3D: [number, number, number];
-  gpuArchitecture: "Blackwell B200 Liquid" | "Hopper H200 Hybrid" | "Grace Hopper GH200";
+  gpuArchitecture:
+    | "Blackwell B200 Liquid"
+    | "Hopper H200 Hybrid"
+    | "Grace Hopper GH200";
   stabilityCluster: StabilityClusterType;
   clusterConfidence: number;
   inletTempC: number;
@@ -44,15 +47,19 @@ export interface RackNode {
   maxPowerKw: number;
   voltageRippleMv: number;
   vibrationMmS: number;
-   coolantFlowLpm: number;
+  coolantFlowLpm: number;
   utilizationPct: number;
-  healthScore: number; // 0-100
-  predictedTimeToFailureMin: number | null; // null if stable
+  totalEccErrorsPerHr: number;
+  healthScore: number; // Derived from blades & manifold telemetry
+  predictedTimeToFailureMin: number | null;
   replacementRecommended: boolean;
-  replacementUrgency: "IMMEDIATE_SWAP" | "NEXT_MAINTENANCE_WINDOW" | "MONITOR" | "NONE";
+  replacementUrgency:
+    | "IMMEDIATE_SWAP"
+    | "NEXT_MAINTENANCE_WINDOW"
+    | "MONITOR"
+    | "NONE";
   replacementDiagnosis: string;
   estimatedReplacementCostUsd: number;
-  // CBRE Invisible Network Links
   crahUnitId: string;
   pduFeedId: string;
   accessZoneId: string;
@@ -66,8 +73,12 @@ export interface RackNode {
 export interface CBREFacilityNode {
   id: string;
   name: string;
-  category: "HVAC_COOLING" | "UTILITY_POWER" | "ACCESS_CONTROL" | "TENANT_LEASE_SLA" | "BMS_CONTROL";
-  status: "NOMINAL" | "WARNING" | "COMPROMISED" | "FAILING";
+  category:
+    | "HVAC_COOLING"
+    | "UTILITY_POWER"
+    | "ACCESS_CONTROL"
+    | "TENANT_LEASE_SLA";
+  status: "NOMINAL" | "WARNING" | "FAILING";
   metricLabel: string;
   metricValue: string;
   anomalyDetail: string;
@@ -80,10 +91,20 @@ export interface InvisibleDependencyEdge {
   id: string;
   sourceId: string;
   sourceLabel: string;
-  sourceSilo: "ACCESS_CONTROL" | "HVAC_COOLING" | "UTILITY_POWER" | "BMS_CYBER" | "COMPUTE_RACK" | "TENANT_SLA";
+  sourceSilo:
+    | "ACCESS_CONTROL"
+    | "HVAC_COOLING"
+    | "UTILITY_POWER"
+    | "COMPUTE_RACK"
+    | "TENANT_SLA";
   targetId: string;
   targetLabel: string;
-  targetSilo: "ACCESS_CONTROL" | "HVAC_COOLING" | "UTILITY_POWER" | "BMS_CYBER" | "COMPUTE_RACK" | "TENANT_SLA";
+  targetSilo:
+    | "ACCESS_CONTROL"
+    | "HVAC_COOLING"
+    | "UTILITY_POWER"
+    | "COMPUTE_RACK"
+    | "TENANT_SLA";
   causalMechanism: string;
   propagationLagMin: number;
   activeInCascade: boolean;
@@ -112,81 +133,165 @@ export interface CBRERealEstateSite {
 export interface ShiftHandoffEvent {
   id: string;
   timestamp: string;
-  shift: "Night Shift A (00:00-08:00)" | "Day Shift B (08:00-16:00)" | "Swing Shift C (16:00-00:00)";
+  shift:
+    | "Night Shift A (00:00-08:00)"
+    | "Day Shift B (08:00-16:00)"
+    | "Swing Shift C (16:00-00:00)";
   author: string;
   role: string;
-  severity: "CRITICAL_HANDOFF" | "AGENT_MITIGATED" | "HARDWARE_REPLACEMENT" | "SILO_WARNING";
+  severity:
+    | "CRITICAL_HANDOFF"
+    | "AGENT_MITIGATED"
+    | "HARDWARE_REPLACEMENT"
+    | "SILO_WARNING";
   title: string;
   unstructuredNote: string;
   correlatedSensors: string[];
   cbreSiloLink: string;
   actionRequiredNextShift: string;
-  acknowledged: boolean;
 }
 
 export interface DisasterScenario {
   id: string;
   name: string;
-  sponsorTieIn: string;
+  shortName: string;
   description: string;
   rootCauseSilo: string;
   affectedClusters: string[];
-  unmitigatedSlaLossPerHr: number;
-  timeToCascadeCriticalMin: number;
+  baseSlaLossPerHrUsd: number;
+  baseCascadeWindowMin: number;
+}
+
+export interface SynchronizedMetrics {
+  baseSlaPerHrUsd: number;
+  activeSlaExposurePerHrUsd: number;
+  savedSlaPerHrUsd: number;
+  horizonOffsetMin: number;
+  remainingTimeToCascadeMin: number;
+  flaggedHardwareSwapsCount: number;
+  flaggedSwapRackIds: string[];
+  transientDriftRacksCount: number;
+  healthyRacksCount: number;
+  dfwUsedPowerMw: number;
+  dfwTotalPowerMw: number;
+  dfwAvailableMarginMw: number;
+  dfwUtilizationPct: number;
 }
 
 export const DISASTER_SCENARIOS: DisasterScenario[] = [
   {
     id: "chiller_badge_cascade",
-    name: "Cooling Loop 2 Valve Drift + Unverified Contractor Badge-In",
-    sponsorTieIn: "CBRE Invisible Network + NMC² Missed Shift Warning",
+    name: "CRAH-02 Bypass Drift + Contractor Badge-In",
+    shortName: "Cooling Loop Drift",
     description:
-      "Contractor badged into Mechanical Mezzanine M2 during shift change and left CRAH-02 secondary bypass valve at 38% manual override. Coolant flow to Cluster B (Blackwell B200 Liquid Pods) is dropping 1.8 L/min, causing rapid thermal runaway and threatening a $68,000/hr CoreWeave/OpenAI Tenant SLA breach.",
-    rootCauseSilo: "Access Control (Badge #4491) -> HVAC Chiller Loop 2 -> Rack Cluster B & C -> Tenant SLA #TX-902",
+      "Contractor badged into Mechanical Room M2 prior to shift change and left CRAH-02 bypass valve at 38% manual override. Coolant starvation across Cluster B & C risks thermal throttling and tenant SLA breach.",
+    rootCauseSilo:
+      "Access Control (Badge #4491) → HVAC Loop CRAH-02 → Rack Clusters B & C → Tenant Lease #HYP-02",
     affectedClusters: ["CLUSTER-B", "CLUSTER-C"],
-    unmitigatedSlaLossPerHr: 68400,
-    timeToCascadeCriticalMin: 18,
+    baseSlaLossPerHrUsd: 68400,
+    baseCascadeWindowMin: 30,
   },
   {
     id: "bms_zeroday_voltage",
-    name: "Zero-Day BMS Modbus Spoofing + PDU-B Harmonic Voltage Ripple",
-    sponsorTieIn: "CBRE Page 3 Zero-Day Control Attack + Hardware Replacement Clustering",
+    name: "BMS Telemetry Spoof + Substation Harmonic Ripple",
+    shortName: "Substation Voltage Ripple",
     description:
-      "Spoofed BACnet/Modbus telemetry on Building Management System masks a 48V busway harmonic ripple on Substation Feeder B2. Rectifier shelves in Cluster C & D are experiencing capacitor degradation and silent ECC memory errors, requiring immediate cluster isolation and 6 rack PSU/blade replacements.",
-    rootCauseSilo: "BMS Control Network -> Substation PDU-B2 -> Cluster C & D Rectifiers -> Sovereign AI Lease SLA",
+      "Spoofed Modbus telemetry on Building Management System masks a 48V busway harmonic ripple on Feeder PDU-B1. Rectifier shelves in Cluster C & D experience capacitor fatigue and HBM3e ECC memory errors.",
+    rootCauseSilo:
+      "BMS Control Silo → Substation Feeder PDU-B1 → Clusters C & D PSU Shelves → Sovereign AI SLA",
     affectedClusters: ["CLUSTER-C", "CLUSTER-D"],
-    unmitigatedSlaLossPerHr: 94200,
-    timeToCascadeCriticalMin: 12,
+    baseSlaLossPerHrUsd: 94200,
+    baseCascadeWindowMin: 26,
   },
   {
     id: "grid_substation_brownout",
-    name: "ERCOT Substation Transformer Sag + High-Density CapEx Overload",
-    sponsorTieIn: "CBRE Portfolio Real Estate Capacity + NVIDIA Workload Migration",
+    name: "ERCOT Transformer Sag + High-Density CapEx Overload",
+    shortName: "Grid Transformer Sag",
     description:
-      "Ambient 104°F Texas grid surge drops Utility Transformer T-1 capacity by 22% while Cluster A & B run 115kW/rack LLM pre-training. Requires immediate dynamic workload throttling + CBRE real-estate expansion analysis to offload 18MW of Blackwell clusters to Hillsboro or Ashburn.",
-    rootCauseSilo: "Utility Grid Feeder T-1 -> Main Switchgear -> Cluster A & B Thermal/Power Cap -> CBRE Site Expansion",
+      "Ambient grid surge drops Utility Transformer T-1 capacity by 22% while Clusters A & B run 115kW/rack pre-training. Requires immediate dynamic workload throttling and CBRE site expansion offload.",
+    rootCauseSilo:
+      "Utility Substation T-1 → Main Switchgear → Clusters A & B Power Cap → CBRE Site Expansion",
     affectedClusters: ["CLUSTER-A", "CLUSTER-B"],
-    unmitigatedSlaLossPerHr: 112000,
-    timeToCascadeCriticalMin: 14,
+    baseSlaLossPerHrUsd: 112000,
+    baseCascadeWindowMin: 24,
   },
 ];
 
-// Generate realistic 32-rack data hall across 4 GPU Compute Clusters (A, B, C, D)
+// Compute synchronized SLA & countdown metrics from scenario + horizon scrubber
+export function computeSynchronizedMetrics(
+  scenario: DisasterScenario,
+  timeOffsetMin: number,
+  nemotronMitigated: boolean,
+  racks: RackNode[]
+): SynchronizedMetrics {
+  // Escalates linearly by 1.5% per minute of unmitigated horizon progression
+  const escalatedSla = Math.round(
+    scenario.baseSlaLossPerHrUsd * (1 + timeOffsetMin * 0.015)
+  );
+  const activeSlaExposurePerHrUsd = nemotronMitigated ? 0 : escalatedSla;
+  const savedSlaPerHrUsd = nemotronMitigated ? escalatedSla : 0;
+
+  const remainingTimeToCascadeMin = Math.max(
+    2,
+    scenario.baseCascadeWindowMin - timeOffsetMin
+  );
+
+  const swapRacks = racks.filter((r) => r.replacementRecommended);
+  const transientRacks = racks.filter(
+    (r) => r.stabilityCluster === "TRANSIENT_THERMAL_DRIFT"
+  );
+  const healthyRacks = racks.filter(
+    (r) => r.stabilityCluster === "HEALTHY_OPTIMAL"
+  );
+
+  const dfwTotalPowerMw = 48.0;
+  const dfwUsedPowerMw = nemotronMitigated ? 41.6 : 44.8;
+  const dfwAvailableMarginMw = Number(
+    (dfwTotalPowerMw - dfwUsedPowerMw).toFixed(1)
+  );
+  const dfwUtilizationPct = Number(
+    ((dfwUsedPowerMw / dfwTotalPowerMw) * 100).toFixed(1)
+  );
+
+  return {
+    baseSlaPerHrUsd: scenario.baseSlaLossPerHrUsd,
+    activeSlaExposurePerHrUsd,
+    savedSlaPerHrUsd,
+    horizonOffsetMin: timeOffsetMin,
+    remainingTimeToCascadeMin,
+    flaggedHardwareSwapsCount: swapRacks.length,
+    flaggedSwapRackIds: swapRacks.map((r) => r.id),
+    transientDriftRacksCount: transientRacks.length,
+    healthyRacksCount: healthyRacks.length,
+    dfwUsedPowerMw,
+    dfwTotalPowerMw,
+    dfwAvailableMarginMw,
+    dfwUtilizationPct,
+  };
+}
+
 export function generateInitialDataCenterState(
   scenarioId: string = "chiller_badge_cascade",
-  timeOffsetMin: number = 0,
-  nemotronMitigated: boolean = false
+  timeOffsetMin: number = 12,
+  nemotronMitigated: boolean = false,
+  swappedRacks: Record<string, boolean> = {}
 ): {
+  scenario: DisasterScenario;
+  metrics: SynchronizedMetrics;
   racks: RackNode[];
   facilityNodes: CBREFacilityNode[];
   dependencyEdges: InvisibleDependencyEdge[];
   sites: CBRERealEstateSite[];
   shiftEvents: ShiftHandoffEvent[];
 } {
+  const scenario =
+    DISASTER_SCENARIOS.find((s) => s.id === scenarioId) ||
+    DISASTER_SCENARIOS[0];
+
   const clusters = [
     {
       id: "CLUSTER-A",
-      name: "Cluster Alpha (LLM Frontier Training)",
+      name: "Cluster Alpha (Frontier Training)",
       rowBase: 0,
       colBase: 0,
       arch: "Blackwell B200 Liquid" as const,
@@ -195,12 +300,11 @@ export function generateInitialDataCenterState(
       zone: "ZONE-SEC-1",
       lease: "LEASE-ANTH-01",
       tenant: "Frontier AI Lab (16MW Dedicated Lease)",
-      slaUsd: 32000,
-      workload: "Nemotron-4 340B Distributed Pre-Training",
+      workload: "Distributed Frontier Pre-Training",
     },
     {
       id: "CLUSTER-B",
-      name: "Cluster Bravo (Liquid-Cooled Inference Mesh)",
+      name: "Cluster Bravo (Liquid Inference Mesh)",
       rowBase: 0,
       colBase: 4,
       arch: "Blackwell B200 Liquid" as const,
@@ -209,12 +313,11 @@ export function generateInitialDataCenterState(
       zone: "ZONE-MECH-2",
       lease: "LEASE-HYP-02",
       tenant: "Hyperscale Cloud Tenant #2 (SLA Tier-0)",
-      slaUsd: 44000,
-      workload: "Multi-Modal Real-Time Inference Cluster",
+      workload: "Low-Latency Multi-Modal Inference",
     },
     {
       id: "CLUSTER-C",
-      name: "Cluster Charlie (Legacy H200 Hybrid Pod)",
+      name: "Cluster Charlie (H200 Hybrid Pod)",
       rowBase: 2,
       colBase: 0,
       arch: "Hopper H200 Hybrid" as const,
@@ -222,13 +325,12 @@ export function generateInitialDataCenterState(
       pdu: "PDU-B1",
       zone: "ZONE-MECH-2",
       lease: "LEASE-FIN-03",
-      tenant: "Global Quant & Sovereign Cloud Tenant",
-      slaUsd: 28500,
-      workload: "High-Frequency Risk & Rag Pipeline",
+      tenant: "Sovereign AI & Quant Compute Tenant",
+      workload: "High-Frequency Risk & RAG Pipeline",
     },
     {
       id: "CLUSTER-D",
-      name: "Cluster Delta (Autonomous Simulation Pod)",
+      name: "Cluster Delta (Simulation Pod)",
       rowBase: 2,
       colBase: 4,
       arch: "Grace Hopper GH200" as const,
@@ -237,15 +339,134 @@ export function generateInitialDataCenterState(
       zone: "ZONE-SEC-4",
       lease: "LEASE-BIO-04",
       tenant: "BioCompute & Digital Twin Consortium",
-      slaUsd: 24000,
-      workload: "Molecular Dynamics & Omniverse Physics",
+      workload: "Molecular Dynamics & Physics Twin",
     },
   ];
 
-  const timeFactor = Math.max(0, timeOffsetMin / 30); // 0 at T+0, 1 at T+30m, 2 at T+60m
-  const mitigationDampener = nemotronMitigated ? 0.18 : 1.0;
+  const timeFactor = Math.max(0, timeOffsetMin / 30);
+  const mitigationDampener = nemotronMitigated ? 0.15 : 1.0;
+
+  // Pre-compute total synchronized SLA so per-rack SLA shares sum cleanly
+  const currentTotalSlaPerHr = nemotronMitigated
+    ? 0
+    : Math.round(scenario.baseSlaLossPerHrUsd * (1 + timeOffsetMin * 0.015));
 
   const racks: RackNode[] = [];
+
+  // Specific chronic hardware fault profiles (distinct per rack and per blade!)
+  const hardwareFaultCatalog: Record<
+    string,
+    {
+      faultySlots: Record<
+        number,
+        { reason: string; tempDelta: number; rippleMv: number; eccRate: number }
+      >;
+      urgency: "IMMEDIATE_SWAP" | "NEXT_MAINTENANCE_WINDOW";
+      diagnosis: string;
+      baseFlowPenalty: number;
+      baseVibration: number;
+    }
+  > = {
+    "RACK-11": {
+      urgency: "IMMEDIATE_SWAP",
+      baseFlowPenalty: 9.4,
+      baseVibration: 3.1,
+      diagnosis:
+        "Quick-disconnect manifold seal occlusion on U4 + secondary cold-plate micro-channel restriction on U6. Replace manifold seal kit and HGX B200 Blade U4.",
+      faultySlots: {
+        4: {
+          reason: "Manifold QD Seal Leak & Cold-Plate Starvation",
+          tempDelta: 17.4,
+          rippleMv: 44.2,
+          eccRate: 38,
+        },
+        6: {
+          reason: "HBM3e Thermal Throttling & Single-Bit ECC Surge",
+          tempDelta: 12.8,
+          rippleMv: 36.5,
+          eccRate: 21,
+        },
+      },
+    },
+    "RACK-12": {
+      urgency: "IMMEDIATE_SWAP",
+      baseFlowPenalty: 8.2,
+      baseVibration: 2.8,
+      diagnosis:
+        "Thermal interface material pump-out on HGX B200 Tray U2 + NVLink switch optical transceiver overheating on U5. Hot-swap Blade U2 & NVLink Tray U5.",
+      faultySlots: {
+        2: {
+          reason: "GPU Die TIM Pump-Out (Hotspot ΔT +19°C)",
+          tempDelta: 18.9,
+          rippleMv: 39.1,
+          eccRate: 31,
+        },
+        5: {
+          reason: "NVLink Switch Optical Transceiver Lane Fault",
+          tempDelta: 14.2,
+          rippleMv: 41.8,
+          eccRate: 17,
+        },
+      },
+    },
+    "RACK-19": {
+      urgency: "IMMEDIATE_SWAP",
+      baseFlowPenalty: 4.1,
+      baseVibration: 3.6,
+      diagnosis:
+        "48V busbar rectifier shelf U8 capacitor breakdown (91mV ripple) inducing voltage droop and HBM3e ECC errors on Blade U6. Replace PSU Shelf U8 & Blade U6.",
+      faultySlots: {
+        6: {
+          reason: "VRM Phase Droop & HBM3e Multi-Bit ECC Warning",
+          tempDelta: 13.6,
+          rippleMv: 76.4,
+          eccRate: 46,
+        },
+        8: {
+          reason: "48V Busbar Rectifier Capacitor Bank Failure",
+          tempDelta: 16.5,
+          rippleMv: 91.8,
+          eccRate: 54,
+        },
+      },
+    },
+    "RACK-20": {
+      urgency: "IMMEDIATE_SWAP",
+      baseFlowPenalty: 3.8,
+      baseVibration: 3.3,
+      diagnosis:
+        "Rectifier shelf U8 harmonic fatigue (84mV ripple) + PCIe Gen6 retimer lane degradation on Tray U3. Replace PSU Shelf U8 & HGX H200 Tray U3.",
+      faultySlots: {
+        3: {
+          reason: "PCIe Gen6 Retimer Clock Jitter & ECC Spike",
+          tempDelta: 11.9,
+          rippleMv: 68.2,
+          eccRate: 29,
+        },
+        8: {
+          reason: "48V Rectifier Harmonic MOSFET Degradation",
+          tempDelta: 15.1,
+          rippleMv: 84.5,
+          eccRate: 42,
+        },
+      },
+    },
+    "RACK-27": {
+      urgency: "NEXT_MAINTENANCE_WINDOW",
+      baseFlowPenalty: 7.5,
+      baseVibration: 4.7,
+      diagnosis:
+        "In-rack CDU pump impeller bearing cavitation (4.7 mm/s vibration) causing localized flow oscillation on Tray U7. Schedule CDU pump & U7 cold-plate swap.",
+      faultySlots: {
+        7: {
+          reason: "CDU Impeller Cavitation Flow Oscillation",
+          tempDelta: 12.3,
+          rippleMv: 34.8,
+          eccRate: 14,
+        },
+      },
+    },
+  };
 
   clusters.forEach((cluster, cIdx) => {
     for (let i = 0; i < 8; i++) {
@@ -254,136 +475,121 @@ export function generateInitialDataCenterState(
       const globalRow = cluster.rowBase + localRow;
       const globalCol = cluster.colBase + localCol;
 
-      // 3D coordinates in the Data Hall
       const x = (globalCol - 3.5) * 2.4;
       const z = (globalRow - 1.5) * 3.6;
 
       const rackNum = cIdx * 8 + i + 1;
       const rackId = `RACK-${String(rackNum).padStart(2, "0")}`;
+      const isSwapped = Boolean(swappedRacks[rackId]);
+      const faultProfile = isSwapped ? undefined : hardwareFaultCatalog[rackId];
 
-      // Deterministic seed per rack
-      const seed = ((rackNum * 37) % 100) / 100;
-
-      // Determine how affected this rack is by the active scenario
-      const isClusterB = cluster.id === "CLUSTER-B";
-      const isClusterC = cluster.id === "CLUSTER-C";
-      const isClusterD = cluster.id === "CLUSTER-D";
-      const isClusterA = cluster.id === "CLUSTER-A";
-
-      let thermalSpike = 0;
-      let rippleSpike = 0;
-      let flowDrop = 0;
-
-      if (scenarioId === "chiller_badge_cascade") {
-        if (isClusterB) {
-          thermalSpike = (16 + i * 2.4 + timeFactor * 18) * mitigationDampener;
-          flowDrop = (14 + i * 1.5 + timeFactor * 12) * mitigationDampener;
-        } else if (isClusterC && i >= 4) {
-          thermalSpike = (11 + (i - 3) * 2.2 + timeFactor * 14) * mitigationDampener;
-          flowDrop = (9 + timeFactor * 10) * mitigationDampener;
-        }
-      } else if (scenarioId === "bms_zeroday_voltage") {
-        if (isClusterC || (isClusterD && i < 5)) {
-          rippleSpike = (68 + i * 9 + timeFactor * 45) * mitigationDampener;
-          thermalSpike = (9 + i * 1.6 + timeFactor * 11) * mitigationDampener;
-        }
-      } else if (scenarioId === "grid_substation_brownout") {
-        if (isClusterA || isClusterB) {
-          thermalSpike = (14 + i * 1.9 + timeFactor * 16) * mitigationDampener;
-          rippleSpike = (42 + i * 6 + timeFactor * 30) * mitigationDampener;
-        }
-      }
-
-      // Specific chronic hardware replacement candidates (for NMC² & CBRE CapEx replacement clustering)
-      const isChronicHardwareFault =
-        rackId === "RACK-11" ||
-        rackId === "RACK-12" ||
-        rackId === "RACK-19" ||
-        rackId === "RACK-20" ||
-        rackId === "RACK-27";
-
-      if (isChronicHardwareFault) {
-        rippleSpike += nemotronMitigated ? 28 : 54;
-        thermalSpike += nemotronMitigated ? 5 : 11;
-      }
-
-      const coolantTempC = Number((28.5 + seed * 3.2 + thermalSpike * 0.85).toFixed(1));
-      const inletTempC = Number((22.0 + seed * 2.5 + thermalSpike * 0.55).toFixed(1));
-      const maxPowerKw = cluster.arch === "Blackwell B200 Liquid" ? 120 : 85;
-      const basePower = maxPowerKw * (0.72 + seed * 0.18);
-      const powerDrawKw = Number(
-        (nemotronMitigated && (thermalSpike > 5 || isChronicHardwareFault)
-          ? basePower * 0.58
-          : Math.min(maxPowerKw * 1.06, basePower + thermalSpike * 0.7)
-        ).toFixed(1)
+      const isAffectedByScenario = scenario.affectedClusters.includes(
+        cluster.id
       );
-      const voltageRippleMv = Number((14 + seed * 11 + rippleSpike).toFixed(1));
-      const vibrationMmS = Number((0.8 + seed * 0.9 + (isChronicHardwareFault ? 3.4 : 0) + thermalSpike * 0.08).toFixed(2));
-      const coolantFlowLpm = Number(Math.max(8, 42 - flowDrop - (isChronicHardwareFault ? 9 : 0)).toFixed(1));
 
-      // Compute multi-variate health score (0-100)
-      const rawHealth =
-        100 -
-        Math.max(0, coolantTempC - 32) * 2.1 -
-        Math.max(0, voltageRippleMv - 30) * 0.42 -
-        Math.max(0, 35 - coolantFlowLpm) * 1.15 -
-        (isChronicHardwareFault ? 18 : 0);
-      const healthScore = Math.max(8, Math.min(99, Math.round(rawHealth)));
+      // Deterministic per-rack variation
+      const rackSeed = ((rackNum * 29 + 7) % 100) / 100;
 
-      // Unsupervised Spectral / Density Cluster Assignment
-      let stabilityCluster: StabilityClusterType = "HEALTHY_OPTIMAL";
-      if (healthScore < 42 || (coolantTempC > 49 && !nemotronMitigated)) {
-        stabilityCluster = "CRITICAL_SLA_BREACH";
-      } else if (isChronicHardwareFault && coolantFlowLpm < 30) {
-        stabilityCluster = "COOLING_MICRO_LEAK_REPLACE";
-      } else if (voltageRippleMv > 55 || isChronicHardwareFault) {
-        stabilityCluster = "POWER_RIPPLE_DEGRADED";
-      } else if (coolantTempC > 38) {
-        stabilityCluster = "THERMAL_CASCADE_RISK";
+      let scenarioThermalDrift = 0;
+      let scenarioRippleDrift = 0;
+      let scenarioFlowDrop = 0;
+
+      if (isAffectedByScenario) {
+        if (scenarioId === "chiller_badge_cascade") {
+          scenarioThermalDrift =
+            (9.5 + i * 1.35 + timeFactor * 11.5) * mitigationDampener;
+          scenarioFlowDrop =
+            (10.5 + i * 1.1 + timeFactor * 8.5) * mitigationDampener;
+        } else if (scenarioId === "bms_zeroday_voltage") {
+          scenarioRippleDrift =
+            (38 + i * 5.2 + timeFactor * 26) * mitigationDampener;
+          scenarioThermalDrift =
+            (6.5 + i * 1.1 + timeFactor * 7.5) * mitigationDampener;
+        } else if (scenarioId === "grid_substation_brownout") {
+          scenarioThermalDrift =
+            (8.2 + i * 1.25 + timeFactor * 10.2) * mitigationDampener;
+          scenarioRippleDrift =
+            (28 + i * 4.1 + timeFactor * 19) * mitigationDampener;
+        }
       }
 
-      const replacementRecommended =
-        isChronicHardwareFault || stabilityCluster === "POWER_RIPPLE_DEGRADED" || stabilityCluster === "COOLING_MICRO_LEAK_REPLACE";
+      const maxPowerKw = cluster.arch === "Blackwell B200 Liquid" ? 120 : 85;
+      const baseRackCoolantC =
+        27.8 + rackSeed * 2.4 + scenarioThermalDrift * 0.72;
+      const baseRackRippleMv =
+        13.5 + rackSeed * 6.5 + scenarioRippleDrift * 0.85;
 
-      let replacementUrgency: RackNode["replacementUrgency"] = "NONE";
-      if (replacementRecommended && healthScore < 52) {
-        replacementUrgency = "IMMEDIATE_SWAP";
-      } else if (replacementRecommended) {
-        replacementUrgency = "NEXT_MAINTENANCE_WINDOW";
-      } else if (healthScore < 75) {
-        replacementUrgency = "MONITOR";
-      }
-
-      let replacementDiagnosis = "All 8 GPU trays & manifold sensors operating within nominal telemetry envelope.";
-      if (rackId === "RACK-11" || rackId === "RACK-12") {
-        replacementDiagnosis =
-          "Quick-disconnect liquid manifold seal degradation + Tray U4 NVLink thermal interface pump-out. Replace manifold & re-seat HGX B200 blade U4.";
-      } else if (rackId === "RACK-19" || rackId === "RACK-20") {
-        replacementDiagnosis =
-          "48V busbar rectifier shelf #2 MOSFET harmonic fatigue (82mV ripple) causing HBM3e single-bit ECC spikes on Trays U2 & U6. Replace PSU shelf + Blade U6.";
-      } else if (rackId === "RACK-27") {
-        replacementDiagnosis =
-          "Impeller bearing cavitation (4.6 mm/s vibration) on in-rack CDU pump + aged VRM bank. Schedule full CDU & blade module swap.";
-      } else if (stabilityCluster === "THERMAL_CASCADE_RISK" || stabilityCluster === "CRITICAL_SLA_BREACH") {
-        replacementDiagnosis =
-          "External facility cooling cascade from CRAH-02 valve drop; hardware intact if workload drained within 15 min before silicon thermal degradation.";
-      }
-
-      const predictedTimeToFailureMin =
-        healthScore < 45
-          ? Math.max(4, Math.round(18 - timeOffsetMin * 0.4))
-          : healthScore < 72
-          ? Math.max(12, Math.round(44 - timeOffsetMin * 0.5))
-          : null;
-
-      // Generate 8 blades per rack
+      // Build 8 distinct blades with realistic vertical chassis thermal gradient & individual variance
       const blades: BladeUnit[] = Array.from({ length: 8 }, (_, bIdx) => {
         const uSlot = bIdx + 1;
-        const isFaultyBlade =
-          (replacementRecommended && (uSlot === 4 || uSlot === 6 || uSlot === 8)) ||
-          (healthScore < 50 && uSlot === 2);
-        const bladeTemp = Number((coolantTempC + 14 + (isFaultyBlade ? 16 : (bIdx % 3) * 2.3)).toFixed(1));
-        const bladeHealth = Math.max(12, Math.min(99, healthScore - (isFaultyBlade ? 26 : 0) + (bIdx % 2) * 3));
+        const slotFault = faultProfile?.faultySlots[uSlot];
+
+        // Vertical heat rise + unique slot hash so NO TWO BLADES ever have identical numbers
+        const slotHash = ((rackNum * 17 + uSlot * 31) % 19) - 9; // -9 to +9
+        const elevationGradientC = uSlot * 0.65 + slotHash * 0.18;
+
+        const bladeTempC = Number(
+          (
+            baseRackCoolantC +
+            11.2 +
+            elevationGradientC +
+            (slotFault ? slotFault.tempDelta : 0)
+          ).toFixed(1)
+        );
+
+        const nominalSlotPower =
+          uSlot === 5
+            ? maxPowerKw * 0.065
+            : uSlot === 8
+            ? maxPowerKw * 0.055
+            : (maxPowerKw * 0.88) / 6;
+
+        const throttleScale =
+          nemotronMitigated && (Boolean(faultProfile) || isAffectedByScenario)
+            ? 0.62
+            : 0.84 + rackSeed * 0.12;
+
+        const bladePowerKw = Number(
+          (
+            nominalSlotPower * throttleScale +
+            slotHash * 0.11 +
+            (slotFault ? 1.4 : 0)
+          ).toFixed(1)
+        );
+
+        const bladeRippleMv = Number(
+          (
+            baseRackRippleMv +
+            uSlot * 0.9 +
+            slotHash * 0.45 +
+            (slotFault ? slotFault.rippleMv : 0)
+          ).toFixed(1)
+        );
+
+        // Realistic distinct ECC distribution per blade
+        let eccErrorsPerHr = 0;
+        if (slotFault) {
+          eccErrorsPerHr = slotFault.eccRate;
+        } else if (
+          !nemotronMitigated &&
+          isAffectedByScenario &&
+          (uSlot === 3 || uSlot === 7) &&
+          timeOffsetMin >= 12
+        ) {
+          eccErrorsPerHr = Math.max(1, Math.round((rackNum % 5) + uSlot - 2));
+        }
+
+        const rawBladeHealth =
+          100 -
+          Math.max(0, bladeTempC - 44) * 1.65 -
+          Math.max(0, bladeRippleMv - 28) * 0.38 -
+          eccErrorsPerHr * 0.45;
+
+        const bladeHealth = Math.max(
+          14,
+          Math.min(99, Math.round(rawBladeHealth))
+        );
+
         return {
           uSlot,
           model:
@@ -394,19 +600,96 @@ export function generateInitialDataCenterState(
               : cluster.arch === "Blackwell B200 Liquid"
               ? "NVIDIA HGX B200 (8x GPU)"
               : "NVIDIA HGX H200 (8x GPU)",
-          tempC: bladeTemp,
-          powerKw: Number((powerDrawKw / 8 + (isFaultyBlade ? 1.8 : 0)).toFixed(1)),
-          psuRippleMv: Number((voltageRippleMv * (isFaultyBlade ? 1.35 : 0.9)).toFixed(1)),
-          eccErrorsPerHr: isFaultyBlade ? 48 : healthScore < 65 ? 9 : 0,
+          tempC: bladeTempC,
+          powerKw: Math.max(2.1, bladePowerKw),
+          psuRippleMv: Math.max(9.5, bladeRippleMv),
+          eccErrorsPerHr,
           healthScore: bladeHealth,
-          needsReplacement: isFaultyBlade,
-          failureReason: isFaultyBlade
-            ? uSlot === 8
-              ? "48V Busbar Rectifier Capacitor Breakdown"
-              : "Cold-Plate Micro-Channel Occlusion & HBM3e ECC Surge"
-            : undefined,
+          needsReplacement: Boolean(slotFault),
+          failureReason: slotFault?.reason,
         };
       });
+
+      // Derive rack aggregates directly from its 8 blades (Single Source of Truth)
+      const powerDrawKw = Number(
+        blades.reduce((acc, b) => acc + b.powerKw, 0).toFixed(1)
+      );
+      const avgBladeTempC =
+        blades.reduce((acc, b) => acc + b.tempC, 0) / blades.length;
+      const coolantTempC = Number((avgBladeTempC - 12.8).toFixed(1));
+      const inletTempC = Number((coolantTempC - 6.2).toFixed(1));
+      const voltageRippleMv = Number(
+        Math.max(...blades.map((b) => b.psuRippleMv)).toFixed(1)
+      );
+      const totalEccErrorsPerHr = blades.reduce(
+        (acc, b) => acc + b.eccErrorsPerHr,
+        0
+      );
+      const minBladeHealth = Math.min(...blades.map((b) => b.healthScore));
+      const avgBladeHealth =
+        blades.reduce((acc, b) => acc + b.healthScore, 0) / blades.length;
+
+      // Rack health weights worst blade (60%) + average blade health (40%)
+      const healthScore = Math.round(minBladeHealth * 0.6 + avgBladeHealth * 0.4);
+
+      const coolantFlowLpm = Number(
+        Math.max(
+          11.5,
+          42.0 -
+            scenarioFlowDrop -
+            (faultProfile ? faultProfile.baseFlowPenalty : 0) -
+            rackSeed * 1.8
+        ).toFixed(1)
+      );
+
+      const vibrationMmS = Number(
+        (
+          0.75 +
+          rackSeed * 0.55 +
+          (faultProfile ? faultProfile.baseVibration : 0) +
+          scenarioThermalDrift * 0.04
+        ).toFixed(2)
+      );
+
+      // Strict 3-State Semantic Cluster Assignment (Green = Optimal, Amber = Transient Drift, Red = Hardware Swap Required)
+      let stabilityCluster: StabilityClusterType = "HEALTHY_OPTIMAL";
+      if (faultProfile) {
+        stabilityCluster = "HARDWARE_SWAP_REQUIRED";
+      } else if (
+        !nemotronMitigated &&
+        (isAffectedByScenario || coolantTempC > 36.5 || healthScore < 78)
+      ) {
+        stabilityCluster = "TRANSIENT_THERMAL_DRIFT";
+      }
+
+      const replacementRecommended = Boolean(faultProfile);
+      const replacementUrgency: RackNode["replacementUrgency"] = faultProfile
+        ? faultProfile.urgency
+        : stabilityCluster === "TRANSIENT_THERMAL_DRIFT"
+        ? "MONITOR"
+        : "NONE";
+
+      const replacementDiagnosis = isSwapped
+        ? "Module Hot-Swap Completed: New HGX Blade & 48V PSU Shelf Verified Nominal."
+        : faultProfile
+        ? faultProfile.diagnosis
+        : stabilityCluster === "TRANSIENT_THERMAL_DRIFT"
+        ? "Transient facility cooling/voltage drift from upstream loop; hardware intact once loop is stabilized."
+        : "All 8 server trays, manifold seals, and 48V busbars operating within nominal telemetry envelope.";
+
+      const predictedTimeToFailureMin =
+        stabilityCluster === "HARDWARE_SWAP_REQUIRED"
+          ? Math.max(4, scenario.baseCascadeWindowMin - timeOffsetMin - 4)
+          : stabilityCluster === "TRANSIENT_THERMAL_DRIFT"
+          ? Math.max(6, scenario.baseCascadeWindowMin - timeOffsetMin)
+          : null;
+
+      // Distribute active SLA exposure proportionally across at-risk racks
+      const isAtRisk = stabilityCluster !== "HEALTHY_OPTIMAL";
+      const rackSlaShareUsd =
+        !isAtRisk || nemotronMitigated
+          ? 0
+          : Math.round(currentTotalSlaPerHr / 12);
 
       racks.push({
         id: rackId,
@@ -418,7 +701,7 @@ export function generateInitialDataCenterState(
         position3D: [x, 0, z],
         gpuArchitecture: cluster.arch,
         stabilityCluster,
-        clusterConfidence: Number((0.89 + (rackNum % 9) * 0.01).toFixed(2)),
+        clusterConfidence: Number((0.91 + (rackNum % 8) * 0.01).toFixed(2)),
         inletTempC,
         coolantTempC,
         powerDrawKw,
@@ -426,7 +709,11 @@ export function generateInitialDataCenterState(
         voltageRippleMv,
         vibrationMmS,
         coolantFlowLpm,
-        utilizationPct: nemotronMitigated && healthScore < 70 ? 35 : Math.min(99, Math.round(78 + seed * 20)),
+        utilizationPct:
+          nemotronMitigated && isAtRisk
+            ? 38
+            : Math.min(98, Math.round(76 + rackSeed * 19)),
+        totalEccErrorsPerHr,
         healthScore,
         predictedTimeToFailureMin,
         replacementRecommended,
@@ -438,29 +725,37 @@ export function generateInitialDataCenterState(
         accessZoneId: cluster.zone,
         tenantLeaseId: cluster.lease,
         tenantName: cluster.tenant,
-        slaPenaltyPerHourUsd: Math.round(cluster.slaUsd / 4),
+        slaPenaltyPerHourUsd: rackSlaShareUsd,
         activeWorkload:
-          nemotronMitigated && (isClusterB || isChronicHardwareFault)
-            ? "MIGRATED -> Cluster Alpha / Hillsboro DR"
+          nemotronMitigated && isAtRisk
+            ? "Drained → Cluster Alpha / Hillsboro DR"
             : cluster.workload,
         blades,
       });
     }
   });
 
-  // CBRE Facility & Invisible Network Nodes
+  // Compute unified metrics from the generated racks
+  const metrics = computeSynchronizedMetrics(
+    scenario,
+    timeOffsetMin,
+    nemotronMitigated,
+    racks
+  );
+
+  // CBRE Facility & Invisible Network Nodes (Synchronized with `metrics`)
   const facilityNodes: CBREFacilityNode[] = [
     {
       id: "ACCESS-MECH-M2",
-      name: "Badge Access Control: Mechanical Mezzanine M2",
+      name: "Badge Access Control: Mech Room M2",
       category: "ACCESS_CONTROL",
       status: nemotronMitigated ? "NOMINAL" : "WARNING",
-      metricLabel: "Last Contractor Badge-In",
-      metricValue: "Badge #4491 (23m ago - No Shift Sign-Off)",
+      metricLabel: "Last Contractor Entry",
+      metricValue: `Badge #4491 (T-${metrics.horizonOffsetMin + 14}m · Unverified)`,
       anomalyDetail:
-        "HVAC Vendor badged into Chiller Loop 2 room 14 mins before Shift A handoff; manual valve override left engaged.",
+        "HVAC contractor entered Mechanical Room M2 prior to shift turnover; manual bypass valve override left at 38%.",
       connectedRackClusters: ["CLUSTER-B", "CLUSTER-C"],
-      cascadeImpactUsdPerHr: 68400,
+      cascadeImpactUsdPerHr: metrics.activeSlaExposurePerHrUsd,
       position3D: [-11.5, 1.2, -3.5],
     },
     {
@@ -468,25 +763,29 @@ export function generateInitialDataCenterState(
       name: "CRAH-02 Primary Liquid Chiller Loop",
       category: "HVAC_COOLING",
       status: nemotronMitigated ? "WARNING" : "FAILING",
-      metricLabel: "Secondary Loop Flow / Delta-T",
-      metricValue: nemotronMitigated ? "39.4 L/min (Aux Valve Engaged)" : `${Math.max(14, Number((24.2 - timeFactor * 6).toFixed(1)))} L/min (+11.4°C Drift)`,
+      metricLabel: "Loop Flow Rate",
+      metricValue: nemotronMitigated
+        ? "39.4 L/min (Aux Valve Open)"
+        : `${Math.max(14, Number((24.2 - timeFactor * 5.5).toFixed(1)))} L/min (Starved)`,
       anomalyDetail:
-        "Bypass valve position mismatch causing starvation across Row 1-2 manifolds serving RACK-09 through RACK-20.",
+        "Secondary loop starvation driving thermal drift across Cluster Bravo and Charlie manifolds.",
       connectedRackClusters: ["CLUSTER-B", "CLUSTER-C"],
-      cascadeImpactUsdPerHr: 72500,
+      cascadeImpactUsdPerHr: metrics.activeSlaExposurePerHrUsd,
       position3D: [0, 1.6, -7.2],
     },
     {
       id: "PDU-B1",
       name: "Substation Feeder B1 & 48V Busway",
       category: "UTILITY_POWER",
-      status: scenarioId === "bms_zeroday_voltage" && !nemotronMitigated ? "COMPROMISED" : "WARNING",
-      metricLabel: "Total Harmonic Distortion (THD)",
-      metricValue: nemotronMitigated ? "2.1% THD (Filtered)" : "8.7% THD / 78mV Ripple",
+      status: nemotronMitigated ? "NOMINAL" : "WARNING",
+      metricLabel: "Harmonic Distortion",
+      metricValue: nemotronMitigated
+        ? "1.9% THD (Filtered)"
+        : "8.7% THD / 91.8mV Peak Ripple",
       anomalyDetail:
-        "Switching harmonic resonance accelerating PSU rectifier aging in RACK-19 & RACK-20.",
+        "Harmonic switching resonance accelerating rectifier capacitor wear in RACK-19 & RACK-20.",
       connectedRackClusters: ["CLUSTER-C", "CLUSTER-D"],
-      cascadeImpactUsdPerHr: 52500,
+      cascadeImpactUsdPerHr: metrics.activeSlaExposurePerHrUsd,
       position3D: [11.5, 1.2, 2.5],
     },
     {
@@ -494,17 +793,18 @@ export function generateInitialDataCenterState(
       name: "CBRE Master Lease & Tenant SLA Vault",
       category: "TENANT_LEASE_SLA",
       status: nemotronMitigated ? "NOMINAL" : "FAILING",
-      metricLabel: "Active SLA Exposure",
-      metricValue: nemotronMitigated ? "$0/hr (Protected)" : `$${Math.round(68400 * (1 + timeFactor * 0.65)).toLocaleString()}/hr Penalty Risk`,
-      anomalyDetail:
-        "Clause 14.2 of Hyperscale Lease #HYP-02 triggers $44,000/hr penalty if inlet liquid exceeds 42°C for >15 consecutive minutes.",
+      metricLabel: "Synchronized SLA Risk",
+      metricValue: nemotronMitigated
+        ? `$0/hr (Saved $${metrics.savedSlaPerHrUsd.toLocaleString()}/hr)`
+        : `$${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr Exposure`,
+      anomalyDetail: `Clause 14.2 of Hyperscale Lease #HYP-02 breaches in T-${metrics.remainingTimeToCascadeMin} mins ($${metrics.baseSlaPerHrUsd.toLocaleString()}/hr base rate escalated by +${metrics.horizonOffsetMin}m drift).`,
       connectedRackClusters: ["CLUSTER-A", "CLUSTER-B", "CLUSTER-C"],
-      cascadeImpactUsdPerHr: 96000,
+      cascadeImpactUsdPerHr: metrics.activeSlaExposurePerHrUsd,
       position3D: [0, 2.2, 7.2],
     },
   ];
 
-  // Causal Dependency Edges (CBRE "Invisible Network")
+  // Causal Dependency Edges (Synchronized with `metrics.activeSlaExposurePerHrUsd` & `remainingTimeToCascadeMin`)
   const dependencyEdges: InvisibleDependencyEdge[] = [
     {
       id: "EDGE-1",
@@ -514,8 +814,9 @@ export function generateInitialDataCenterState(
       targetId: "CRAH-02",
       targetLabel: "CRAH-02 Chiller Bypass Valve",
       targetSilo: "HVAC_COOLING",
-      causalMechanism: "Unclosed manual test bypass after physical room entry during shift turnover",
-      propagationLagMin: 6,
+      causalMechanism:
+        "Unclosed 38% manual test bypass after physical room entry prior to shift turnover",
+      propagationLagMin: 4,
       activeInCascade: !nemotronMitigated,
       severity: "CRITICAL",
     },
@@ -525,12 +826,13 @@ export function generateInitialDataCenterState(
       sourceLabel: "CRAH-02 Chiller Loop Starvation",
       sourceSilo: "HVAC_COOLING",
       targetId: "CLUSTER-B",
-      targetLabel: "Cluster Bravo (Racks 09–16 B200 Liquid)",
+      targetLabel: `Cluster Bravo (${metrics.transientDriftRacksCount} Transient Drift Racks)`,
       targetSilo: "COMPUTE_RACK",
-      causalMechanism: "Manifold flow drop below 24 L/min triggers GPU cold-plate boiling & thermal throttling",
-      propagationLagMin: 9,
+      causalMechanism:
+        "Manifold flow drop below 24 L/min triggers GPU cold-plate thermal drift (recoverable via auxiliary valve & drain)",
+      propagationLagMin: 8,
       activeInCascade: !nemotronMitigated,
-      severity: "CRITICAL",
+      severity: "HIGH",
     },
     {
       id: "EDGE-3",
@@ -538,23 +840,26 @@ export function generateInitialDataCenterState(
       sourceLabel: "Substation Feeder PDU-B1 Harmonic Ripple",
       sourceSilo: "UTILITY_POWER",
       targetId: "CLUSTER-C",
-      targetLabel: "Cluster Charlie (Racks 19–20 PSU Failure)",
+      targetLabel: `Hardware Swap Queue (${metrics.flaggedSwapRackIds.join(", ") || "All Swapped"})`,
       targetSilo: "COMPUTE_RACK",
-      causalMechanism: "82mV DC ripple degrades rectifier capacitors -> HBM3e ECC memory errors",
-      propagationLagMin: 12,
-      activeInCascade: true,
-      severity: "HIGH",
+      causalMechanism:
+        "91.8mV DC ripple & manifold wear require physical PSU shelf / HGX blade hot-swap from Cage 4",
+      propagationLagMin: 10,
+      activeInCascade: metrics.flaggedHardwareSwapsCount > 0,
+      severity: "CRITICAL",
     },
     {
       id: "EDGE-4",
       sourceId: "CLUSTER-B",
-      sourceLabel: "Cluster Bravo & Charlie Instability",
+      sourceLabel: "Unmitigated Cluster Instability",
       sourceSilo: "COMPUTE_RACK",
       targetId: "LEASE-SLA-PORTFOLIO",
       targetLabel: "CBRE Hyperscale Tenant SLA #HYP-02",
       targetSilo: "TENANT_SLA",
-      causalMechanism: "99.999% uptime & thermal envelope covenant breach ($68,400/hr penalty + termination right)",
-      propagationLagMin: 15,
+      causalMechanism: nemotronMitigated
+        ? `Cascade severed: $0/hr active exposure ($${metrics.savedSlaPerHrUsd.toLocaleString()}/hr SLA penalty avoided)`
+        : `Breach in T-${metrics.remainingTimeToCascadeMin} mins at T+${metrics.horizonOffsetMin}m horizon: $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr active SLA exposure (Base: $${metrics.baseSlaPerHrUsd.toLocaleString()}/hr)`,
+      propagationLagMin: metrics.remainingTimeToCascadeMin,
       activeInCascade: !nemotronMitigated,
       severity: "CRITICAL",
     },
@@ -568,18 +873,18 @@ export function generateInitialDataCenterState(
       market: "Dallas-Fort Worth, TX (ERCOT)",
       coordinates: "33.0198° N, 96.6989° W",
       tier: "Tier IV Hyperscale",
-      availablePowerMw: 3.2,
-      totalPowerMw: 48.0,
+      availablePowerMw: metrics.dfwAvailableMarginMw,
+      totalPowerMw: metrics.dfwTotalPowerMw,
       pue: 1.24,
       floorLoadingLbsSqFt: 350,
       liquidCoolingReady: true,
       leaseRatePerKwMonthUsd: 168,
       substationRedundancy: "2N Dual ERCOT 138kV Feeders",
       cbreRecommendationScore: 71,
-      expansionFitReason:
-        "93.3% power utilization. 5 racks (RACK-11, 12, 19, 20, 27) flagged for immediate modular replacement; any net-new >5MW cluster expansion requires adjacent CBRE land parcel or DR offload.",
+      expansionFitReason: `${metrics.dfwUtilizationPct}% power load (${metrics.dfwUsedPowerMw}/${metrics.dfwTotalPowerMw} MW) leaves only ${metrics.dfwAvailableMarginMw} MW margin. ${metrics.flaggedHardwareSwapsCount} racks flagged for in-place blade/PSU swap; net-new 18MW Blackwell expansion must offload to Hillsboro.`,
       activeClustersCount: 4,
-      unstableRacksCount: racks.filter((r) => r.healthScore < 70).length,
+      unstableRacksCount:
+        metrics.flaggedHardwareSwapsCount + metrics.transientDriftRacksCount,
     },
     {
       id: "SITE-PDX-2",
@@ -596,13 +901,13 @@ export function generateInitialDataCenterState(
       substationRedundancy: "2N+1 Direct Hydro Substation (130kW/rack rated)",
       cbreRecommendationScore: 96,
       expansionFitReason:
-        "Optimal CBRE expansion match: 34MW immediate turn-key liquid-cooled capacity, 15% lower $/kW lease rate, and 500 lbs/sq.ft slab built for NVIDIA GB200 NVL72 clusters.",
+        "Optimal CBRE expansion match: 34.0 MW turn-key hydro capacity, 15% lower $/kW lease rate, and 500 lbs/sq.ft slab engineered for high-density NVIDIA GB200 NVL72 clusters.",
       activeClustersCount: 2,
       unstableRacksCount: 0,
     },
     {
       id: "SITE-IAD-3",
-      name: "CBRE Ashburn Sovereign Cloud Annex (Low-Latency Target #2)",
+      name: "CBRE Ashburn Sovereign Cloud Annex (Target #2)",
       market: "Northern Virginia (PJM Grid)",
       coordinates: "39.0438° N, 77.4874° W",
       tier: "Tier IV Hyperscale",
@@ -615,64 +920,85 @@ export function generateInitialDataCenterState(
       substationRedundancy: "2N Dominion 230kV Loop",
       cbreRecommendationScore: 88,
       expansionFitReason:
-        "Sub-2ms fiber peering to East Coast financial tenants; ideal secondary failover site for Cluster Charlie Sovereign AI workloads.",
+        "Sub-2ms fiber peering to East Coast financial tenants; ideal secondary DR failover site for Cluster Charlie Sovereign AI workloads.",
       activeClustersCount: 6,
       unstableRacksCount: 1,
     },
   ];
 
-  // NorthMark Compute & Cloud (NMC²) Zero-Drop Shift Handoff Log
+  // NorthMark Compute & Cloud (NMC²) Zero-Drop Shift Handoff Log (Synchronized with `metrics`)
   const shiftEvents: ShiftHandoffEvent[] = [
     {
       id: "SHIFT-EV-1",
-      timestamp: "22:42 CST (18m before Shift Change)",
+      timestamp: `T-${metrics.horizonOffsetMin + 14}m (Outgoing Swing Shift C)`,
       shift: "Swing Shift C (16:00-00:00)",
       author: "Marcus Vance (Facilities Tech II)",
-      role: "Physical Mechanical Ops",
+      role: "Mechanical Operations",
       severity: "SILO_WARNING",
-      title: "Unstructured Shift Log: 'Tested CRAH-02 Secondary Loop Bypass'",
+      title: "Unstructured Shift Note: 'CRAH-02 Bypass Left on Test Override'",
       unstructuredNote:
-        "\"Vendor from Apex Mechanical badged into M2 to bleed air from CRAH-02 secondary manifold. Left bypass valve at ~35-40% while waiting for pressure gauge to settle. Need Night Shift to verify before Cluster B ramps up.\"",
-      correlatedSensors: ["ACCESS-MECH-M2 (Badge #4491)", "CRAH-02 Flow (-16.2 L/min)", "RACK-11 & RACK-12 Coolant (46.8°C)"],
-      cbreSiloLink: "Connected Access Control Log + Unstructured Note + Tenant SLA #HYP-02",
+        '"Vendor from Apex Mechanical badged into Room M2 to bleed air from CRAH-02 secondary manifold. Left bypass valve at ~38% while waiting for pressure gauge to settle. Incoming Night Shift A must verify valve closure before Cluster B ramps."',
+      correlatedSensors: [
+        "ACCESS-MECH-M2 (Badge #4491)",
+        "CRAH-02 Flow Drop",
+        "RACK-11 & RACK-12 Manifold ΔT",
+      ],
+      cbreSiloLink:
+        "Access Control Log + Unstructured Note + Tenant Lease #HYP-02",
       actionRequiredNextShift:
-        "Close CRAH-02 manual bypass valve in Mech Room M2 & inspect RACK-11/RACK-12 quick-disconnect seals.",
-      acknowledged: nemotronMitigated,
+        "Close CRAH-02 manual bypass valve in Mech Room M2 and verify secondary loop flow ≥39 L/min.",
     },
     {
       id: "SHIFT-EV-2",
-      timestamp: "23:05 CST (Current Shift Window)",
+      timestamp: `T+${metrics.horizonOffsetMin}m Horizon (Active Countdown: T-${metrics.remainingTimeToCascadeMin}m)`,
       shift: "Night Shift A (00:00-08:00)",
-      author: "NVIDIA Nemotron Autonomous Sentinel",
+      author: "Nemotron Autonomous Sentinel",
       role: "Multi-Agent ReAct Orchestrator",
       severity: nemotronMitigated ? "AGENT_MITIGATED" : "CRITICAL_HANDOFF",
-      title: "Cross-Silo Cascade Detected: 18 Mins to $68,400/hr SLA Breach",
-      unstructuredNote:
-        "Nemotron correlated Marcus's shift note with a 1.8°C/min thermal rise on Cluster B (Racks 09–16) and harmonic voltage ripple on Cluster C (Racks 19–20). Without intervention, Tenant Lease #HYP-02 breaches in 18 minutes.",
-      correlatedSensors: ["Cluster B Thermal Drift", "PDU-B1 82mV Ripple", "CBRE Lease Clause 14.2"],
-      cbreSiloLink: "Full 4-Layer Causal Graph (Access -> HVAC -> Rack Cluster -> Real Estate Lease)",
+      title: nemotronMitigated
+        ? `Cascade Severed: Saved $${metrics.savedSlaPerHrUsd.toLocaleString()}/hr SLA Exposure`
+        : `Cross-Silo Cascade Alert: T-${metrics.remainingTimeToCascadeMin} Mins to $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr SLA Breach`,
+      unstructuredNote: `Correlated Swing Shift C's valve note with thermal drift across ${metrics.transientDriftRacksCount} recoverable racks and intrinsic hardware wear on ${metrics.flaggedHardwareSwapsCount} swap-bound racks (${metrics.flaggedSwapRackIds.join(", ") || "None"}).`,
+      correlatedSensors: [
+        `Active SLA Risk: $${metrics.activeSlaExposurePerHrUsd.toLocaleString()}/hr`,
+        `Countdown: T-${metrics.remainingTimeToCascadeMin}m`,
+        "CBRE Lease Clause 14.2",
+      ],
+      cbreSiloLink:
+        "4-Silo Causal Graph (Access → HVAC → Rack Cluster → Tenant Lease)",
       actionRequiredNextShift:
-        "Approve or review Nemotron Autonomous Mitigation Plan: Drain RACK-11, 12, 19, 20 workloads, actuate Aux Chiller Valve, and stage 5 replacement blade/PSU kits.",
-      acknowledged: nemotronMitigated,
+        "Confirm Nemotron autonomous workload drain on swap-bound racks and actuate auxiliary valve V-204B.",
     },
     {
       id: "SHIFT-EV-3",
-      timestamp: "23:12 CST (Hardware Lifecycle Queue)",
+      timestamp: "Night Shift A Maintenance Queue",
       shift: "Night Shift A (00:00-08:00)",
-      author: "NMC² Predictive Fleet Clustering Engine",
-      role: "Hardware Reliability Automation",
+      author: "NMC² Spectral Fleet Clustering",
+      role: "Hardware Lifecycle Engine",
       severity: "HARDWARE_REPLACEMENT",
-      title: "5 Racks Clustered for Physical Module Replacement (Bay Staging Ready)",
+      title: `${metrics.flaggedHardwareSwapsCount} Racks Staged for Physical Cage 4 Hot-Swap`,
       unstructuredNote:
-        "Spectral clustering isolated RACK-11, RACK-12 (Manifold Seal + Blade U4), RACK-19, RACK-20 (48V Rectifier Shelf + Blade U6), and RACK-27 (CDU Pump Bearing) from transient thermal noise.",
-      correlatedSensors: ["RACK-11/12 Flow Sensor", "RACK-19/20 82mV Ripple & 48 ECC/hr", "RACK-27 4.6mm/s Vibration"],
-      cbreSiloLink: "CapEx Replacement ($242.5K) vs. CBRE Hillsboro OR Site Expansion Analysis",
+        "Spectral clustering separated transient cooling drift victims from racks with physical hardware degradation: RACK-11 (U4 Manifold/Blade), RACK-12 (U2 Blade/U5 NVLink), RACK-19 & RACK-20 (U8 48V PSU Shelf + Blade), and RACK-27 (CDU Pump Bearing).",
+      correlatedSensors: [
+        "RACK-11 U4 (38 ECC/h)",
+        "RACK-12 U2 (31 ECC/h)",
+        "RACK-19 U8 (91.8mV / 54 ECC/h)",
+        "RACK-20 U8 (84.5mV / 42 ECC/h)",
+      ],
+      cbreSiloLink:
+        "In-Place Swap ($242.5K CapEx) vs. CBRE Hillsboro OR 34MW Expansion",
       actionRequiredNextShift:
-        "Pull pre-staged HGX B200/H200 spares from Cage 4 and execute hot-swap on RACK-11, 12, 19, 20, 27 after workload drain completes.",
-      acknowledged: false,
+        "Pull pre-staged HGX blades and 48V PSU shelves from Cage 4 and sign unified shift handoff.",
     },
   ];
 
-  return { racks, facilityNodes, dependencyEdges, sites, shiftEvents };
+  return {
+    scenario,
+    metrics,
+    racks,
+    facilityNodes,
+    dependencyEdges,
+    sites,
+    shiftEvents,
+  };
 }
-
